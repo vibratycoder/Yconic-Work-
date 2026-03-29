@@ -83,9 +83,10 @@ export async function uploadLabScan(
   mimeType: string = 'image/jpeg',
 ): Promise<{ extracted_results: LabResult[]; abnormal_count: number; total_count: number; import_summary: string }> {
   const formData = new FormData();
+  formData.append('user_id', userId);
   formData.append('file', { uri: imageUri, type: mimeType, name: 'lab_report.jpg' } as unknown as Blob);
 
-  const response = await fetch(`${API_BASE}/api/labs/scan?user_id=${userId}`, {
+  const response = await fetch(`${API_BASE}/api/labs/scan`, {
     method: 'POST',
     body: formData,
   });

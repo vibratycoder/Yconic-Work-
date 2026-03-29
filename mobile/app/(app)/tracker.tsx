@@ -62,6 +62,7 @@ async function loadHealthKitMetrics(): Promise<TrackerMetrics | null> {
     getActiveEnergyBurned: (opts: object, cb: (e: string | null, r: Array<{ value?: number }> | null) => void) => void;
     getSleepSamples: (opts: object, cb: (e: string | null, r: Array<{ startDate: string; endDate: string }> | null) => void) => void;
     getLatestWeight: (opts: object, cb: (e: string | null, r: { value?: number } | null) => void) => void;
+    getOxygenSaturation: (opts: object, cb: (e: string | null, r: Array<{ value: number; startDate: string }> | null) => void) => void;
     Constants: { Permissions: Record<string, string> };
   };
 
@@ -89,7 +90,7 @@ async function loadHealthKitMetrics(): Promise<TrackerMetrics | null> {
   const today = new Date();
   const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
 
-  const [hr, steps, cal, sleep, weight] = await Promise.allSettled([
+  const [hr, steps, cal, sleep, weight, spo2] = await Promise.allSettled([
     new Promise<number | null>((res) =>
       HK.getLatestHeartRateSample({ unit: 'bpm' }, (e, r) => res(!e && r ? Math.round(r.value ?? 0) : null)),
     ),
@@ -112,6 +113,12 @@ async function loadHealthKitMetrics(): Promise<TrackerMetrics | null> {
     new Promise<number | null>((res) =>
       HK.getLatestWeight({ unit: 'gram' }, (e, r) => res(!e && r ? parseFloat(((r.value ?? 0) / 1000).toFixed(1)) : null)),
     ),
+    new Promise<number | null>((res) =>
+      HK.getOxygenSaturation({ unit: 'percent' }, (e, r) => {
+        if (e || !r || r.length === 0) return res(null);
+        res(Math.round(r[0].value));
+      }),
+    ),
   ]);
 
   return {
@@ -120,7 +127,7 @@ async function loadHealthKitMetrics(): Promise<TrackerMetrics | null> {
     calories:    cal.status === 'fulfilled' ? cal.value : null,
     sleepHours:  sleep.status === 'fulfilled' ? sleep.value : null,
     weightKg:    weight.status === 'fulfilled' ? weight.value : null,
-    bloodOxygen: null, // OxygenSaturation API varies by HK version
+    bloodOxygen: spo2.status === 'fulfilled' ? spo2.value : null,
     isDemo:      false,
   };
 }
