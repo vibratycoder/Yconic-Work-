@@ -1,4 +1,4 @@
-# Pulse — Architecture
+# Sana Health — Architecture
 
 ## System overview
 Two core systems power every response:

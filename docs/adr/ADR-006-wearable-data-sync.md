@@ -2,7 +2,7 @@
 
 **Status**: Accepted
 **Date**: 2026-03-29
-**Deciders**: Pulse engineering team
+**Deciders**: Sana Health engineering team
 
 ## Context
 
@@ -84,4 +84,4 @@ Fields that are `None` are omitted from the line rather than rendered as "N/A" t
 - The `check_emergency` function evaluates only the user's text message and runs before every LLM call regardless of what wearable data shows. An elevated resting heart rate in the wearable summary does not trigger or suppress emergency triage — only the user's live symptom description does.
 - Blood glucose values from consumer HealthKit sources must be clearly treated as self-reported context, not clinical measurements. Claude must not use them to diagnose diabetes or adjust medication recommendations.
 - HealthKit data is collected only with explicit iOS permission grants. If the user revokes permissions, subsequent syncs will produce partial or empty payloads; the existing `WearableSummary` in the profile is retained until overwritten by a new sync, which may mean stale data persists. A staleness indicator (days since last sync) should be considered in a future iteration.
-- Apple HealthKit terms of service prohibit using HealthKit data for advertising or selling to data brokers. Pulse must ensure that `WearableSummary` data is used solely for the stated purpose of personalizing the user's own AI health interactions.
+- Apple HealthKit terms of service prohibit using HealthKit data for advertising or selling to data brokers. Sana Health must ensure that `WearableSummary` data is used solely for the stated purpose of personalizing the user's own AI health interactions.

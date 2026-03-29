@@ -1,4 +1,4 @@
-# Pulse — Claude Code Configuration
+# Sana Health — Claude Code Configuration
 
 ## Project
 AI health co-pilot. FastAPI backend + Next.js 14 web.

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Pulse RAG (Retrieval-Augmented Generation) pipeline retrieves peer-reviewed academic evidence and injects it into the Claude system prompt before every health question is answered. This grounds every response in the published literature rather than relying on the model's parametric knowledge alone.
+The Sana Health RAG (Retrieval-Augmented Generation) pipeline retrieves peer-reviewed academic evidence and injects it into the Claude system prompt before every health question is answered. This grounds every response in the published literature rather than relying on the model's parametric knowledge alone.
 
 The pipeline is implemented in `backend/rag/` and orchestrated by `backend/rag/health_rag.py`.
 

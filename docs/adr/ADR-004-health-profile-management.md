@@ -2,11 +2,11 @@
 
 **Status**: Accepted
 **Date**: 2026-03-29
-**Deciders**: Pulse engineering team
+**Deciders**: Sana Health engineering team
 
 ## Context
 
-Every AI interaction in Pulse must be personalized to the individual user's medical context — their conditions, medications, allergies, and biometric data — so that Claude can reason safely and accurately about health questions. This requires a persistent, structured data model that is loaded on every chat request and injected into the Claude system prompt. A decision was needed on how to store, upsert, and incrementally enrich this profile without data loss or conflicts, particularly given that the primary key (id) is not the natural application-level identifier (user_id). Additionally, an automated mechanism was required to capture new health facts that emerge organically during conversations, without requiring the user to manually update their profile.
+Every AI interaction in Sana Health must be personalized to the individual user's medical context — their conditions, medications, allergies, and biometric data — so that Claude can reason safely and accurately about health questions. This requires a persistent, structured data model that is loaded on every chat request and injected into the Claude system prompt. A decision was needed on how to store, upsert, and incrementally enrich this profile without data loss or conflicts, particularly given that the primary key (id) is not the natural application-level identifier (user_id). Additionally, an automated mechanism was required to capture new health facts that emerge organically during conversations, without requiring the user to manually update their profile.
 
 ## Decision
 

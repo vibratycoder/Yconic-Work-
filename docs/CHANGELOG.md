@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Pulse are documented in this file.
+All notable changes to Sana Health are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 

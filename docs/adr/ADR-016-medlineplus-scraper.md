@@ -8,7 +8,7 @@
 
 ## Context
 
-The RAG pipeline retrieves primarily peer-reviewed academic literature, which tends to be technical and written for clinicians. Many Pulse users are non-clinical consumers who find dense academic abstracts confusing or inaccessible. Adding plain-language, patient-facing health summaries from a trusted source improves the LLM's ability to answer general health questions in accessible language without sacrificing accuracy.
+The RAG pipeline retrieves primarily peer-reviewed academic literature, which tends to be technical and written for clinicians. Many Sana Health users are non-clinical consumers who find dense academic abstracts confusing or inaccessible. Adding plain-language, patient-facing health summaries from a trusted source improves the LLM's ability to answer general health questions in accessible language without sacrificing accuracy.
 
 ## Decision
 

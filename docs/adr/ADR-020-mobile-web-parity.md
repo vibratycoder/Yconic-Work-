@@ -8,7 +8,7 @@
 
 ## Context
 
-Pulse ships two frontend clients: a Next.js 14 web application and an Expo React Native mobile application. As new features are developed, there is a natural tendency to prototype on one platform and delay the other indefinitely. This creates a split user experience where web users and mobile users have access to different capabilities, complicating support, documentation, and user expectations. The bloodwork/lab results view and the health insights feed were the first features where this gap became visible.
+Sana Health ships two frontend clients: a Next.js 14 web application and an Expo React Native mobile application. As new features are developed, there is a natural tendency to prototype on one platform and delay the other indefinitely. This creates a split user experience where web users and mobile users have access to different capabilities, complicating support, documentation, and user expectations. The bloodwork/lab results view and the health insights feed were the first features where this gap became visible.
 
 ## Decision
 
@@ -21,7 +21,7 @@ All user-facing features must ship on both platforms in the same release. Parity
 
 ## Alternatives Considered
 
-1. **Mobile-only app** — Simplifies the frontend surface to one platform, but Pulse's target users include professionals who prefer desktop; dropping the web app would reduce addressable audience significantly.
+1. **Mobile-only app** — Simplifies the frontend surface to one platform, but Sana Health's target users include professionals who prefer desktop; dropping the web app would reduce addressable audience significantly.
 2. **Web-first with React Native Web bridge** — React Native Web allows one component tree to render on both platforms, but the current codebase uses Next.js 14 App Router patterns (server components, server actions) that are incompatible with React Native Web's rendering model.
 3. **Shared component library (Turborepo / NX monorepo)** — The architecturally correct long-term solution, but introduces significant build and tooling complexity that is premature at the current stage; deferred to a future ADR.
 

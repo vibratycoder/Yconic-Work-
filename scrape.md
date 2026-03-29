@@ -1,6 +1,6 @@
-# Pulse — Blood Work Reference Range Database
+# Sana Health — Blood Work Reference Range Database
 
-Peer-reviewed sources for normal blood work reference intervals used by the Pulse
+Peer-reviewed sources for normal blood work reference intervals used by the Sana Health
 bloodwork charts. Managed by `backend/agents/scrape_agent.py`.
 
 **Last updated:** 2026-03-29

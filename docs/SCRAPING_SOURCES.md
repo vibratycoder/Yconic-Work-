@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Pulse RAG pipeline retrieves evidence from 6 external data sources. All source clients live in `backend/rag/sources/`. They share common helper utilities from `backend/rag/sources/_shared.py` and respect the HTTP configuration constants defined in `backend/utils/constants.py`.
+The Sana Health RAG pipeline retrieves evidence from 6 external data sources. All source clients live in `backend/rag/sources/`. They share common helper utilities from `backend/rag/sources/_shared.py` and respect the HTTP configuration constants defined in `backend/utils/constants.py`.
 
 All clients use `aiohttp` for async HTTP and `tenacity` for retry logic. Network errors and non-2xx responses always return empty lists so the RAG pipeline degrades gracefully rather than raising.
 

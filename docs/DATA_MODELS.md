@@ -2,7 +2,7 @@
 
 ## Overview
 
-Pulse uses Pydantic v2 models in the backend for request/response validation and database serialisation. Persistent data lives in Supabase (Postgres) with Row Level Security enforced on all tables. The schema is defined in `schema.sql` at the project root.
+Sana Health uses Pydantic v2 models in the backend for request/response validation and database serialisation. Persistent data lives in Supabase (Postgres) with Row Level Security enforced on all tables. The schema is defined in `schema.sql` at the project root.
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Pulse consists of three independently deployed services:
+Sana Health consists of three independently deployed services:
 
 | Service | Runtime | Command |
 |---------|---------|---------|

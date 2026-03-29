@@ -2,11 +2,11 @@
 
 **Status**: Accepted
 **Date**: 2026-03-29
-**Deciders**: Pulse engineering team
+**Deciders**: Sana Health engineering team
 
 ## Context
 
-Pulse is an AI health co-pilot that processes user-submitted symptom descriptions and health queries using a large language model. A subset of health queries describe life-threatening emergencies (e.g., chest pain radiating to the left arm, stroke symptoms, anaphylaxis, suicidal ideation) where any delay — including the latency of an LLM API call — could cost a user their life. Relying on the LLM to identify and escalate emergencies is unsafe: models can hallucinate, produce overly verbose responses, experience network timeouts, or be rate-limited. A deterministic, dependency-free safety gate was needed to intercept these queries before any AI processing begins.
+Sana Health is an AI health co-pilot that processes user-submitted symptom descriptions and health queries using a large language model. A subset of health queries describe life-threatening emergencies (e.g., chest pain radiating to the left arm, stroke symptoms, anaphylaxis, suicidal ideation) where any delay — including the latency of an LLM API call — could cost a user their life. Relying on the LLM to identify and escalate emergencies is unsafe: models can hallucinate, produce overly verbose responses, experience network timeouts, or be rate-limited. A deterministic, dependency-free safety gate was needed to intercept these queries before any AI processing begins.
 
 ## Decision
 
@@ -47,4 +47,4 @@ A pure-Python function `check_emergency()` in `backend/health/injector.py` perfo
 
 ## Compliance & Safety
 
-This gate is the primary technical safeguard ensuring Pulse does not interpose an AI model between a user and emergency services. From a HIPAA and general medical software risk perspective, failing to escalate a life-threatening emergency to emergency services is a critical-severity failure mode. The decision to make this check non-negotiable and unconditional (per `CLAUDE.md`) reflects that priority. Any future refactoring that moves, gates, or conditions this check must be treated as a safety-critical change and reviewed with the same rigor as a change to a medical device. The response deliberately avoids any AI-generated content so that its wording can be reviewed and approved independently of model behavior.
+This gate is the primary technical safeguard ensuring Sana Health does not interpose an AI model between a user and emergency services. From a HIPAA and general medical software risk perspective, failing to escalate a life-threatening emergency to emergency services is a critical-severity failure mode. The decision to make this check non-negotiable and unconditional (per `CLAUDE.md`) reflects that priority. Any future refactoring that moves, gates, or conditions this check must be treated as a safety-critical change and reviewed with the same rigor as a change to a medical device. The response deliberately avoids any AI-generated content so that its wording can be reviewed and approved independently of model behavior.

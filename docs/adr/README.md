@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory contains ADRs (Architecture Decision Records) for Pulse's major operational systems.
+This directory contains ADRs (Architecture Decision Records) for Sana Health's major operational systems.
 
 | ADR | Title | Status |
 |-----|-------|--------|

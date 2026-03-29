@@ -2,7 +2,7 @@
 
 **Status**: Accepted
 **Date**: 2026-03-29
-**Deciders**: Pulse engineering team
+**Deciders**: Sana Health engineering team
 
 ## Context
 

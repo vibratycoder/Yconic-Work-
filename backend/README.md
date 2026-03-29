@@ -1,6 +1,6 @@
-# Pulse Backend
+# Sana Health Backend
 
-FastAPI backend for the Pulse AI health co-pilot.
+FastAPI backend for the Sana Health AI health co-pilot.
 
 ## Quick Start
 

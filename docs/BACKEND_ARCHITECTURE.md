@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Pulse backend is a FastAPI application (`backend/main.py`) that routes all HTTP traffic through a single entry-point module. It delegates to four core sub-packages — `health/`, `features/`, `rag/`, and `intake/` — plus shared infrastructure in `utils/` and `models/`.
+The Sana Health backend is a FastAPI application (`backend/main.py`) that routes all HTTP traffic through a single entry-point module. It delegates to four core sub-packages — `health/`, `features/`, `rag/`, and `intake/` — plus shared infrastructure in `utils/` and `models/`.
 
 ---
 

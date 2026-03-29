@@ -2,11 +2,11 @@
 
 **Status**: Accepted
 **Date**: 2026-03-29
-**Deciders**: Pulse engineering team
+**Deciders**: Sana Health engineering team
 
 ## Context
 
-Users upload a variety of medical documents to Pulse — lab bloodwork, imaging reports, prescriptions, and clinical notes. The full lab OCR pipeline (ADR-003) is expensive in both token cost and latency; running it against every uploaded document regardless of type would waste resources and produce nonsensical output for non-bloodwork files. Additionally, the UI needs to give meaningful feedback when a user uploads the wrong document type (e.g. an MRI report instead of a bloodwork panel) rather than silently failing or returning empty results. A lightweight classification step before committing to full extraction was needed.
+Users upload a variety of medical documents to Sana Health — lab bloodwork, imaging reports, prescriptions, and clinical notes. The full lab OCR pipeline (ADR-003) is expensive in both token cost and latency; running it against every uploaded document regardless of type would waste resources and produce nonsensical output for non-bloodwork files. Additionally, the UI needs to give meaningful feedback when a user uploads the wrong document type (e.g. an MRI report instead of a bloodwork panel) rather than silently failing or returning empty results. A lightweight classification step before committing to full extraction was needed.
 
 ## Decision
 

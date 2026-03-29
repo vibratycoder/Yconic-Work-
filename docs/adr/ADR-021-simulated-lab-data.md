@@ -8,7 +8,7 @@
 
 ## Context
 
-New users who have not yet uploaded or entered any lab results see a completely empty bloodwork tab. User testing showed this empty state significantly increases drop-off before users experience the value of Pulse's lab analysis features — they have nothing to interact with and no sense of what the feature offers. Asking users to upload real labs immediately creates friction and privacy hesitation before trust is established.
+New users who have not yet uploaded or entered any lab results see a completely empty bloodwork tab. User testing showed this empty state significantly increases drop-off before users experience the value of Sana Health's lab analysis features — they have nothing to interact with and no sense of what the feature offers. Asking users to upload real labs immediately creates friction and privacy hesitation before trust is established.
 
 ## Decision
 
@@ -22,7 +22,7 @@ A `SIMULATED_LABS` constant containing 20 representative lab entries is shown wh
 
 ## Consequences
 
-**Positive:** New users immediately see a populated, interactive lab panel that demonstrates Pulse's analysis capability; amber "Demo" badge ensures no user confuses demo data with their actual results; isDemo guard prevents any accidental write to the database.
+**Positive:** New users immediately see a populated, interactive lab panel that demonstrates Sana Health's analysis capability; amber "Demo" badge ensures no user confuses demo data with their actual results; isDemo guard prevents any accidental write to the database.
 
 **Negative / Trade-offs:** The simulated panel represents a single demographic (20-year-old male) which may not match many users' reference ranges; users with different demographics may see values flagged as out-of-range that would be normal for them. The constant must be maintained if reference range standards change.
 

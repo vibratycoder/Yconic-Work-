@@ -2,7 +2,7 @@
 
 ## Overview
 
-The emergency triage gate is a deterministic safety mechanism that runs **before every LLM call** in the Pulse backend. It uses pure string matching — no AI involvement — to ensure zero false negatives on life-threatening symptom presentations.
+The emergency triage gate is a deterministic safety mechanism that runs **before every LLM call** in the Sana Health backend. It uses pure string matching — no AI involvement — to ensure zero false negatives on life-threatening symptom presentations.
 
 This is the single most safety-critical component in the codebase. It must have 100% test coverage and must never be bypassed.
 

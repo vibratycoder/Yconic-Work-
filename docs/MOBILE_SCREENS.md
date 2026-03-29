@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Pulse mobile app is built with Expo SDK 51 and React Native. Routing is handled by `expo-router` using a file-based layout. All screens use a consistent dark theme matching the web application.
+The Sana Health mobile app is built with Expo SDK 51 and React Native. Routing is handled by `expo-router` using a file-based layout. All screens use a consistent dark theme matching the web application.
 
 **Directory structure:**
 

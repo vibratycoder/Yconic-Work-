@@ -2,7 +2,7 @@
 
 ## Overview
 
-Pulse tests are located in `tests/` and mirror the backend module structure. The test suite uses `pytest` with `asyncio` support for async endpoints.
+Sana Health tests are located in `tests/` and mirror the backend module structure. The test suite uses `pytest` with `asyncio` support for async endpoints.
 
 ```
 tests/

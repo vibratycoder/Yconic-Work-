@@ -2,11 +2,11 @@
 
 **Status**: Accepted
 **Date**: 2026-03-29
-**Deciders**: Pulse engineering team
+**Deciders**: Sana Health engineering team
 
 ## Context
 
-Patients frequently arrive at medical appointments poorly prepared — unable to recall their current medications, uncertain which recent lab results were abnormal, or unsure what questions to ask. Pulse holds a rich, longitudinal HealthProfile for each user and is well-positioned to generate a concise, structured pre-visit summary that the patient can print or show to their clinician. A decision was needed on how to generate this summary: whether to apply the full chat pipeline (RAG, triage, citations), use a lighter LLM call, or produce it from a template without an LLM at all.
+Patients frequently arrive at medical appointments poorly prepared — unable to recall their current medications, uncertain which recent lab results were abnormal, or unsure what questions to ask. Sana Health holds a rich, longitudinal HealthProfile for each user and is well-positioned to generate a concise, structured pre-visit summary that the patient can print or show to their clinician. A decision was needed on how to generate this summary: whether to apply the full chat pipeline (RAG, triage, citations), use a lighter LLM call, or produce it from a template without an LLM at all.
 
 ## Decision
 

@@ -8,7 +8,7 @@
 
 ## Context
 
-Clinical trial data surfaces direct, patient-relevant evidence about treatments under investigation — information that peer-reviewed literature searches alone do not reliably surface. Early versions of the RAG pipeline lacked this source, which meant responses to questions like "are there trials for my condition?" required users to leave Pulse and navigate clinicaltrials.gov manually. Including structured trial data improves response quality for condition-specific and treatment-related queries.
+Clinical trial data surfaces direct, patient-relevant evidence about treatments under investigation — information that peer-reviewed literature searches alone do not reliably surface. Early versions of the RAG pipeline lacked this source, which meant responses to questions like "are there trials for my condition?" required users to leave Sana Health and navigate clinicaltrials.gov manually. Including structured trial data improves response quality for condition-specific and treatment-related queries.
 
 ## Decision
 

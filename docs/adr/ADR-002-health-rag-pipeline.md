@@ -2,11 +2,11 @@
 
 **Status**: Accepted
 **Date**: 2026-03-29
-**Deciders**: Pulse engineering team
+**Deciders**: Sana Health engineering team
 
 ## Context
 
-Claude's training knowledge has a cutoff date and does not cite sources, making it unsuitable as a standalone basis for health guidance where users may act on the information. Pulse requires responses grounded in current, peer-reviewed medical literature to reduce hallucination risk and increase user trust. A Retrieval-Augmented Generation (RAG) pipeline was needed that could fetch real academic evidence at query time, rank it by quality, and inject it into the Claude prompt before the final answer is generated.
+Claude's training knowledge has a cutoff date and does not cite sources, making it unsuitable as a standalone basis for health guidance where users may act on the information. Sana Health requires responses grounded in current, peer-reviewed medical literature to reduce hallucination risk and increase user trust. A Retrieval-Augmented Generation (RAG) pipeline was needed that could fetch real academic evidence at query time, rank it by quality, and inject it into the Claude prompt before the final answer is generated.
 
 ## Decision
 

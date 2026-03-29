@@ -2,11 +2,11 @@
 
 **Status**: Accepted
 **Date**: 2026-03-29
-**Deciders**: Pulse engineering team
+**Deciders**: Sana Health engineering team
 
 ## Context
 
-Users of Pulse may be prescribed multiple medications and may ask whether a newly recommended drug is safe to take alongside their existing regimen. Drug-drug interactions can cause serious adverse events — including bleeding, serotonin syndrome, and metabolic crises — so the application must surface known high-risk combinations proactively. The question was whether to implement this check using an LLM, an external pharmacological database, or a curated deterministic rule set. For a safety-critical feature, predictability and auditability of outputs were weighted heavily over coverage breadth.
+Users of Sana Health may be prescribed multiple medications and may ask whether a newly recommended drug is safe to take alongside their existing regimen. Drug-drug interactions can cause serious adverse events — including bleeding, serotonin syndrome, and metabolic crises — so the application must surface known high-risk combinations proactively. The question was whether to implement this check using an LLM, an external pharmacological database, or a curated deterministic rule set. For a safety-critical feature, predictability and auditability of outputs were weighted heavily over coverage breadth.
 
 ## Decision
 

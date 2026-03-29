@@ -2,11 +2,11 @@
 
 **Status**: Accepted
 **Date**: 2026-03-29
-**Deciders**: Pulse engineering team
+**Deciders**: Sana Health engineering team
 
 ## Context
 
-Pulse stores and processes personally sensitive health data including symptom logs, lab results, health profiles, and conversation histories. The system spans three surfaces — a FastAPI backend, a Next.js 14 web client, and an Expo React Native mobile client — all of which must enforce that users can only access their own data. A consistent identity layer is needed across all surfaces without requiring a custom auth implementation, and Supabase (already used as the primary database) provides a built-in auth system with native integration into its Postgres Row-Level Security (RLS) framework.
+Sana Health stores and processes personally sensitive health data including symptom logs, lab results, health profiles, and conversation histories. The system spans three surfaces — a FastAPI backend, a Next.js 14 web client, and an Expo React Native mobile client — all of which must enforce that users can only access their own data. A consistent identity layer is needed across all surfaces without requiring a custom auth implementation, and Supabase (already used as the primary database) provides a built-in auth system with native integration into its Postgres Row-Level Security (RLS) framework.
 
 ## Decision
 
@@ -51,4 +51,4 @@ Authentication is handled entirely by Supabase Auth using email/password credent
 
 ## Compliance & Safety
 
-Pulse handles health data that may qualify as Protected Health Information (PHI) under HIPAA and as sensitive personal data under GDPR. Supabase's RLS enforcement means that even a compromised application layer cannot exfiltrate another user's health records via a database query, which is a meaningful technical safeguard. The known `user_id='placeholder'` defect in onboarding is a data integrity issue that must be resolved before any production deployment handling real patient data — health profiles created with a placeholder identity are not RLS-protected to the correct user. Server-side JWT verification should be implemented before launch to close the trust gap between the client-supplied identity and the database-enforced identity. All health data in transit is protected by TLS via Supabase's managed infrastructure. Session tokens stored client-side by the Supabase SDK should be treated as sensitive credentials; on mobile, AsyncStorage encryption should be evaluated for devices that do not provide OS-level storage encryption.
+Sana Health handles health data that may qualify as Protected Health Information (PHI) under HIPAA and as sensitive personal data under GDPR. Supabase's RLS enforcement means that even a compromised application layer cannot exfiltrate another user's health records via a database query, which is a meaningful technical safeguard. The known `user_id='placeholder'` defect in onboarding is a data integrity issue that must be resolved before any production deployment handling real patient data — health profiles created with a placeholder identity are not RLS-protected to the correct user. Server-side JWT verification should be implemented before launch to close the trust gap between the client-supplied identity and the database-enforced identity. All health data in transit is protected by TLS via Supabase's managed infrastructure. Session tokens stored client-side by the Supabase SDK should be treated as sensitive credentials; on mobile, AsyncStorage encryption should be evaluated for devices that do not provide OS-level storage encryption.
