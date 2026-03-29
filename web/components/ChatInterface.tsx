@@ -220,7 +220,7 @@ export function ChatInterface({ userId }: ChatInterfaceProps): React.ReactElemen
     setMessages([]);
     setConversationId(undefined);
     localStorage.removeItem(DRAFT_KEY);
-  }, [messages.length, DRAFT_KEY]);
+  }, [DRAFT_KEY]);
 
   return (
     <div className="flex h-screen" style={{ background: 'radial-gradient(ellipse at center, #071e3d, #04090f)' }}>

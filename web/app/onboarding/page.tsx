@@ -8,6 +8,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser } from '../../lib/supabase';
+import { COMMON_CONDITIONS, COMMON_ALLERGIES } from '../../lib/health-options';
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
 
@@ -52,22 +53,7 @@ const INITIAL_DATA: OnboardingData = {
 
 /* ── Static option lists ────────────────────────────────────────────────── */
 
-const COMMON_CONDITIONS = [
-  'Type 2 Diabetes', 'Prediabetes', 'Hypertension', 'High Cholesterol',
-  'Asthma', 'COPD', 'Heart Disease', 'Atrial Fibrillation',
-  'Hypothyroidism', 'Hyperthyroidism', 'Chronic Kidney Disease',
-  'Anxiety', 'Depression', 'ADHD', 'Migraine',
-  'Osteoarthritis', 'Rheumatoid Arthritis', 'Osteoporosis',
-  'GERD / Acid Reflux', 'IBS', 'Crohn\'s Disease', 'Ulcerative Colitis',
-  'Sleep Apnea', 'Obesity', 'PCOS', 'Endometriosis',
-];
-
-const COMMON_ALLERGIES = [
-  'Penicillin', 'Amoxicillin', 'Sulfa drugs', 'Aspirin',
-  'NSAIDs (ibuprofen/naproxen)', 'Codeine', 'Morphine',
-  'Latex', 'Shellfish', 'Peanuts', 'Tree nuts',
-  'Dairy', 'Eggs', 'Soy', 'Wheat / Gluten',
-];
+/* COMMON_CONDITIONS and COMMON_ALLERGIES imported from lib/health-options */
 
 const EXERCISE_OPTIONS = [
   'Sedentary (little to no exercise)',

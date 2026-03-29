@@ -7,7 +7,7 @@ from backend.models.health_profile import (
     Medication, WearableSummary,
 )
 from backend.utils.logger import get_logger
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 log = get_logger(__name__)
 _supabase_client: Client | None = None
@@ -86,7 +86,7 @@ async def get_profile(user_id: str) -> HealthProfile | None:
 
         # Parse member_since
         member_since_str = row.get("member_since")
-        member_since = datetime.utcnow()
+        member_since = datetime.now(timezone.utc)
         if member_since_str:
             try:
                 member_since = datetime.fromisoformat(member_since_str.replace("Z", "+00:00"))
@@ -183,7 +183,7 @@ async def upsert_profile(profile: HealthProfile) -> HealthProfile:
             "health_facts": profile.health_facts,
             "wearable_summary": wearable_data,
             "conversation_count": profile.conversation_count,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         supabase.table("health_profiles").upsert(row, on_conflict="user_id").execute()
         log.info("profile_upserted", user_id=profile.user_id)

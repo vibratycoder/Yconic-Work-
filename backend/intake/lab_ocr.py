@@ -2,10 +2,11 @@
 from __future__ import annotations
 import base64
 import json
-import re
 from datetime import date
 import anthropic
 from backend.models.health_profile import LabResult, LabStatus, LabSource
+from backend.utils.constants import CLAUDE_SONNET
+from backend.utils.parsing import extract_json
 from backend.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -51,11 +52,9 @@ def _parse_lab_json(raw: str, source: LabSource) -> list[LabResult]:
     Returns:
         List of LabResult objects; empty list on parse failure.
     """
-    clean = re.sub(r"```(?:json)?\s*|\s*```", "", raw).strip()
-
     try:
-        parsed = json.loads(clean)
-    except json.JSONDecodeError as exc:
+        parsed = extract_json(raw)
+    except (json.JSONDecodeError, ValueError) as exc:
         log.warning("lab_ocr_json_failed", error=str(exc), raw=raw[:200])
         return []
 
@@ -122,7 +121,7 @@ async def extract_lab_results_from_image(
     client = anthropic.AsyncAnthropic()
 
     response = await client.messages.create(
-        model="claude-sonnet-4-6",
+        model=CLAUDE_SONNET,
         max_tokens=2048,
         system=LAB_OCR_SYSTEM,
         messages=[{
@@ -169,7 +168,7 @@ async def extract_lab_results_from_pdf(
     client = anthropic.AsyncAnthropic()
 
     response = await client.messages.create(
-        model="claude-sonnet-4-6",
+        model=CLAUDE_SONNET,
         max_tokens=4096,
         system=LAB_OCR_SYSTEM,
         messages=[{

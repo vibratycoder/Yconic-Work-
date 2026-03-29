@@ -1,6 +1,6 @@
 """Conversation data models."""
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 
 
@@ -27,4 +27,4 @@ class Conversation(BaseModel):
     messages: list[Message] = Field(default_factory=list)
     health_domain: str | None = None
     citations: list[dict] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

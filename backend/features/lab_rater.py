@@ -21,6 +21,16 @@ class LabRating(str, Enum):
     UNKNOWN = "Unknown"
 
 
+# Map LabStatus from OCR/source to user-facing LabRating
+_STATUS_TO_RATING: dict[LabStatus, LabRating] = {
+    LabStatus.NORMAL: LabRating.NORMAL,
+    LabStatus.LOW: LabRating.LOW,
+    LabStatus.HIGH: LabRating.HIGH,
+    LabStatus.CRITICAL: LabRating.HIGH,
+    LabStatus.UNKNOWN: LabRating.UNKNOWN,
+}
+
+
 class RatedLabResult(BaseModel):
     """
     A lab result enriched with a personalized High / Normal / Low rating.
@@ -119,20 +129,12 @@ def rate_lab_result(
 
     # --- Qualitative results (no numeric value) ---
     if lab.value is None:
-        # Map existing status to LabRating as best we can
-        rating_map = {
-            LabStatus.NORMAL: LabRating.NORMAL,
-            LabStatus.LOW: LabRating.LOW,
-            LabStatus.HIGH: LabRating.HIGH,
-            LabStatus.CRITICAL: LabRating.HIGH,
-            LabStatus.UNKNOWN: LabRating.UNKNOWN,
-        }
         return RatedLabResult(
             test_name=lab.test_name,
             value=None,
             value_text=lab.value_text,
             unit=lab.unit,
-            rating=rating_map.get(lab.status, LabRating.UNKNOWN),
+            rating=_STATUS_TO_RATING.get(lab.status, LabRating.UNKNOWN),
             personalized_range_low=None,
             personalized_range_high=None,
             original_status=lab.status,
@@ -161,20 +163,13 @@ def rate_lab_result(
         range_note = "from lab report"
     else:
         # No range available — honour the OCR status flag directly
-        rating_map = {
-            LabStatus.NORMAL: LabRating.NORMAL,
-            LabStatus.LOW: LabRating.LOW,
-            LabStatus.HIGH: LabRating.HIGH,
-            LabStatus.CRITICAL: LabRating.HIGH,
-            LabStatus.UNKNOWN: LabRating.UNKNOWN,
-        }
         log.debug("lab_rater_no_range", test_name=lab.test_name)
         return RatedLabResult(
             test_name=lab.test_name,
             value=lab.value,
             value_text=lab.value_text,
             unit=lab.unit,
-            rating=rating_map.get(lab.status, LabRating.UNKNOWN),
+            rating=_STATUS_TO_RATING.get(lab.status, LabRating.UNKNOWN),
             personalized_range_low=None,
             personalized_range_high=None,
             original_status=lab.status,

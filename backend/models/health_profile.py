@@ -1,6 +1,6 @@
 """Health profile data models for Pulse."""
 from __future__ import annotations
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
 from pydantic import BaseModel, Field, computed_field
 
@@ -150,7 +150,7 @@ class HealthProfile(BaseModel):
     health_facts: list[str] = Field(default_factory=list)
     wearable_summary: WearableSummary | None = None
     conversation_count: int = 0
-    member_since: datetime = Field(default_factory=datetime.utcnow)
+    member_since: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_context_string(self) -> str:
         """
@@ -171,6 +171,8 @@ class HealthProfile(BaseModel):
             demo_parts.append(f"Height: {self.height_cm}cm")
         if self.weight_kg:
             demo_parts.append(f"Weight: {self.weight_kg}kg")
+        if self.member_since:
+            demo_parts.append(f"Member since: {self.member_since.strftime('%B %Y')}")
         if demo_parts:
             parts.append("DEMOGRAPHICS: " + ", ".join(demo_parts))
 

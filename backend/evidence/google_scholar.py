@@ -120,7 +120,7 @@ async def search_google_scholar(
         List of Citation objects sourced from Google Scholar.
         Returns empty list on any error so callers can fall back gracefully.
     """
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     try:
         citations = await asyncio.wait_for(
             loop.run_in_executor(None, partial(_search_sync, query, max_results)),

@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import anthropic
 from backend.health.profile import get_profile, upsert_profile
+from backend.utils.constants import CLAUDE_HAIKU
+from backend.utils.parsing import extract_json
 from backend.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -45,7 +47,7 @@ async def update_profile_from_conversation(
 
         client = anthropic.AsyncAnthropic()
         response = await client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=CLAUDE_HAIKU,
             max_tokens=512,
             system=FACT_EXTRACTION_PROMPT,
             messages=[{
@@ -58,9 +60,7 @@ async def update_profile_from_conversation(
         )
 
         raw = response.content[0].text.strip()
-        import re
-        clean = re.sub(r"```(?:json)?\s*|\s*```", "", raw).strip()
-        new_facts: list[str] = json.loads(clean)
+        new_facts: list[str] = extract_json(raw)
 
         if not isinstance(new_facts, list):
             return

@@ -18,6 +18,7 @@ from backend.health.updater import update_profile_from_conversation
 from backend.evidence.pubmed import get_citations_for_question
 from backend.evidence.query_builder import classify_health_domain
 from backend.features.lab_rater import rate_lab_results
+from backend.features.patterns import identify_concerning_patterns
 from backend.features.triage import classify_triage_level
 from backend.features.visit_prep import generate_visit_summary
 from backend.features.drug_interactions import check_drug_interactions
@@ -441,9 +442,25 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
     # Step 5: Build system prompt
     system_prompt = build_health_system_prompt(profile, citations, len(request.attachments))
 
-    # Step 6: Build messages
+    # Step 6: Build messages (with attachment support mirroring /api/chat)
     messages_payload: list[dict] = list(request.conversation_history)
-    messages_payload.append({"role": "user", "content": request.get_text()})
+    if request.attachments:
+        content: list[dict] = []
+        for att in request.attachments:
+            if att.media_type == "application/pdf":
+                content.append({
+                    "type": "document",
+                    "source": {"type": "base64", "media_type": "application/pdf", "data": att.data},
+                })
+            else:
+                content.append({
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": att.media_type, "data": att.data},
+                })
+        content.append({"type": "text", "text": _build_attachment_prompt(request.get_text(), request.attachments)})
+        messages_payload.append({"role": "user", "content": content})
+    else:
+        messages_payload.append({"role": "user", "content": request.get_text()})
 
     # Step 7: Triage level (deterministic — no LLM)
     triage = classify_triage_level(request.get_text())
@@ -459,6 +476,7 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
     }
 
     async def _generate() -> AsyncGenerator[str, None]:
+        full_response = ""
         try:
             client = anthropic.AsyncAnthropic()
             async with client.messages.stream(
@@ -468,6 +486,7 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
                 messages=messages_payload,
             ) as stream:
                 async for text in stream.text_stream:
+                    full_response += text
                     yield f"data: {json.dumps({'token': text})}\n\n"
         except anthropic.AuthenticationError as exc:
             log.error("chat_stream_auth_failed", user_id=request.user_id, error=str(exc))
@@ -477,6 +496,17 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
             yield f"data: {json.dumps({'token': 'An error occurred. Please try again.'})}\n\n"
         yield f"data: {json.dumps({'meta': meta})}\n\n"
         yield "data: [DONE]\n\n"
+
+        # Background profile enrichment (same as /api/chat Step 8)
+        if full_response:
+            try:
+                full_conversation = list(request.conversation_history) + [
+                    {"role": "user", "content": request.get_text()},
+                    {"role": "assistant", "content": full_response},
+                ]
+                await update_profile_from_conversation(request.user_id, full_conversation)
+            except Exception as exc:
+                log.warning("chat_stream_profile_update_failed", user_id=request.user_id, error=str(exc))
 
     log.info("chat_stream_start", user_id=request.user_id, domain=health_domain)
     return StreamingResponse(
@@ -762,12 +792,16 @@ async def analyze_document(
         abnormal=abnormal_count,
     )
 
+    # Step 5 — detect multi-marker patterns (metabolic syndrome, kidney dysfunction, anemia)
+    patterns = identify_concerning_patterns(raw_results)
+
     return {
         **base_response,
         "rated_results": [r.model_dump() for r in rated],
         "abnormal_count": abnormal_count,
         "total_count": total_count,
         "import_summary": import_summary,
+        "concerning_patterns": patterns,
     }
 
 

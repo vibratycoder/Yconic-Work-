@@ -1,6 +1,6 @@
 """Intake and document data models."""
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 
 
@@ -20,4 +20,4 @@ class DocumentUpload(BaseModel):
     storage_path: str
     document_type: str | None = None
     extracted_facts: list[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

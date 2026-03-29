@@ -14,7 +14,18 @@ KNOWN_INTERACTIONS: list[tuple[str, str, str]] = [
     ("ssri", "tramadol", "Risk of serotonin syndrome"),
     ("maoi", "ssri", "Risk of serotonin syndrome — potentially fatal"),
     ("lithium", "ibuprofen", "NSAIDs may elevate lithium levels"),
+    ("lithium", "naproxen", "NSAIDs may elevate lithium levels"),
     ("digoxin", "amiodarone", "Amiodarone increases digoxin toxicity risk"),
+    ("methotrexate", "ibuprofen", "NSAIDs reduce methotrexate clearance — toxicity risk"),
+    ("methotrexate", "naproxen", "NSAIDs reduce methotrexate clearance — toxicity risk"),
+    ("lisinopril", "spironolactone", "ACE inhibitor + potassium-sparing diuretic — hyperkalemia risk"),
+    ("enalapril", "spironolactone", "ACE inhibitor + potassium-sparing diuretic — hyperkalemia risk"),
+    ("ramipril", "spironolactone", "ACE inhibitor + potassium-sparing diuretic — hyperkalemia risk"),
+    ("ciprofloxacin", "antacid", "Antacids reduce fluoroquinolone absorption"),
+    ("levofloxacin", "antacid", "Antacids reduce fluoroquinolone absorption"),
+    ("atorvastatin", "fenofibrate", "Statin + fibrate — increased rhabdomyolysis risk"),
+    ("simvastatin", "gemfibrozil", "Statin + fibrate — increased rhabdomyolysis risk"),
+    ("rosuvastatin", "fenofibrate", "Statin + fibrate — increased rhabdomyolysis risk"),
 ]
 
 

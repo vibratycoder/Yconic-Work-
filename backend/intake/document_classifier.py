@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import base64
 import json
-import re
 from enum import Enum
 
 import anthropic
 from pydantic import BaseModel
 
+from backend.utils.constants import CLAUDE_SONNET
 from backend.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -142,17 +142,17 @@ async def classify_document(
     content.append({"type": "text", "text": "Classify this document."})
 
     response = await client.messages.create(
-        model="claude-sonnet-4-6",
+        model=CLAUDE_SONNET,
         max_tokens=256,
         system=CLASSIFY_SYSTEM,
         messages=[{"role": "user", "content": content}],
     )
 
     raw = response.content[0].text.strip()
-    clean = re.sub(r"```(?:json)?\s*|\s*```", "", raw).strip()
 
     try:
-        parsed = json.loads(clean)
+        from backend.utils.parsing import extract_json
+        parsed = extract_json(raw)
     except json.JSONDecodeError as exc:
         log.warning("document_classifier_json_failed", error=str(exc), raw=raw[:200])
         # Degrade gracefully — assume not bloodwork
