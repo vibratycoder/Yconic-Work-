@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Pulse",
+    "slug": "pulse-health",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0EA5E9"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.pulse.health",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "Pulse reads your health data to provide personalized health insights.",
+        "NSHealthUpdateUsageDescription": "Pulse does not write health data."
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "react-native-health",
+        {
+          "isClinicalHealthRecordsEnabled": true,
+          "isMotionEnabled": false,
+          "NSHealthShareUsageDescription": "Pulse reads your health data to provide personalized health insights."
+        }
+      ]
+    ],
+    "scheme": "pulse"
+  }
+}

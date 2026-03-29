@@ -1,0 +1,25 @@
+# Environment — never commit secrets
+.env
+.env.local
+.env.*.local
+mobile/.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+build/
+.next/
+out/
+
+# OS
+.DS_Store
+Thumbs.db
