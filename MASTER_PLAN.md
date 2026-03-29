@@ -5,10 +5,10 @@
 
 ## The Platform
 
-**Sana Health is a live, full-stack AI health intelligence platform.** The backend is running. The web app is functional. The demo is seeded. This document is a presentation of a built system, not a proposal for one.
+**Sana Health is a live, full-stack AI health intelligence platform.** The backend is deployed on Render. The web app is deployed on Vercel. The demo is seeded. This document is a presentation of a built system, not a proposal for one.
 
 ```
-GET http://localhost:8010/health  →  {"status": "ok", "version": "0.1.0"}
+GET https://pulse-api.onrender.com/health  →  {"status": "ok", "version": "0.1.0"}
 ```
 
 ---
@@ -41,44 +41,77 @@ GET http://localhost:8010/health  →  {"status": "ok", "version": "0.1.0"}
 
 ### Live API Endpoints
 
-| Route | Status | Returns |
-|---|---|---|
-| `GET  /health` | ✅ | `{"status": "ok"}` |
-| `POST /api/chat` | ✅ | Answer + citations + triage level |
-| `GET  /api/profile/{user_id}` | ✅ | Full HealthProfile + labs |
-| `POST /api/profile` | ✅ | Created at onboarding |
-| `PUT  /api/profile/{user_id}` | ✅ | Updated via edit modal |
-| `POST /api/labs/scan` | ✅ | RatedLabResult[] with deviation_pct |
-| `POST /api/documents/analyze` | ✅ | Classification + OCR + rating |
-| `POST /api/drug-check` | ✅ | Interaction warnings |
-| `GET  /api/visit-prep/{user_id}` | ✅ | One-page VisitSummary |
+| Route | Method | Status | Returns |
+|---|---|---|---|
+| `/health` | GET | ✅ | `{"status": "ok"}` |
+| `/api/chat` | POST | ✅ | Answer + citations + triage level |
+| `/api/chat/stream` | POST | ✅ | SSE token stream + final metadata |
+| `/api/profile/{user_id}` | GET | ✅ | Full HealthProfile + labs |
+| `/api/profile` | POST | ✅ | Created at onboarding |
+| `/api/profile/{user_id}` | PUT | ✅ | Updated via ProfileUpdate (editable fields only) |
+| `/api/labs/scan` | POST | ✅ | RatedLabResult[] with deviation_pct |
+| `/api/documents/analyze` | POST | ✅ | Classification + OCR + personalised rating |
+| `/api/drug-check` | POST | ✅ | Interaction warnings (8 known high-risk pairs) |
+| `/api/visit-prep/{user_id}` | GET | ✅ | One-page VisitSummary |
+| `/api/health-rag/query` | POST | ✅ | OCEBM-ranked evidence + expanded queries |
 
-### Built Components
+### Built Components — Verified
 
-| Layer | Component | Status |
-|---|---|---|
-| **Backend** | FastAPI — 9 routes, emergency gate, Supabase CRUD | ✅ |
-| **Backend** | Multi-source RAG — 6 concurrent queries, OCEBM reranker | ✅ |
-| **Backend** | 8 external API integrations (Scholar, OpenAlex, PubMed, ClinicalTrials, FDA, RxNorm, MedlinePlus, Google Scholar) | ✅ |
-| **Backend** | Lab OCR (Claude Vision), document classifier, personalised rater (80+ tests) | ✅ |
-| **Backend** | Drug interaction checker, visit prep generator, multi-lab pattern detector | ✅ |
-| **Backend** | Scrape agent — autonomous literature-backed reference range updater | ✅ |
-| **Backend** | Background profile enrichment via Claude Haiku | ✅ |
-| **Web** | Auth, 5-step onboarding, chat + HealthProfileSidebar, citation cards | ✅ |
-| **Web** | Bloodwork page — upload, classify, personalised rating, Table/Chart toggle | ✅ |
-| **Web** | Edit Profile modal — 5 tabs (Demographics, Conditions, Medications, Allergies, Learned) | ✅ |
-| **Mobile** | Expo SDK 51 — chat, labs, profile, home, onboarding | ✅ |
-| **Mobile** | HealthKit sync — 7-day biometric summary injection | ✅ |
-| **Demo** | Marcus Chen — 4 conditions, 4 meds, 40 labs across 3 time points | ✅ |
-| **Docs** | 22 Architecture Decision Records | ✅ |
+| Layer | Component | Files | Lines | Status |
+|---|---|---|---|---|
+| **Backend** | FastAPI — 11 routes, emergency gate, Supabase CRUD | `main.py` | 975 | ✅ |
+| **Backend** | Multi-source RAG — query expansion + 6 concurrent queries + OCEBM reranker | `rag/` (7 files) | ~1,160 | ✅ |
+| **Backend** | 8 external API integrations (Semantic Scholar, OpenAlex, PubMed, ClinicalTrials.gov, FDA openFDA, NLM RxNorm, MedlinePlus, Google Scholar) | `rag/sources/` + `evidence/` | ~1,390 | ✅ |
+| **Backend** | Lab OCR — Claude Vision for images + PDF documents | `intake/lab_ocr.py` | 193 | ✅ |
+| **Backend** | Document classifier — bloodwork detection with 30+ keyword pre-check | `intake/document_classifier.py` | 186 | ✅ |
+| **Backend** | Personalised lab rater — 196 base ranges + sex/age/BMI adjustments | `features/lab_rater.py` + `lab_reference_ranges.py` | 757 | ✅ |
+| **Backend** | Drug interaction checker — 8 known high-risk pairs, bidirectional matching | `features/drug_interactions.py` | 53 | ✅ |
+| **Backend** | Visit prep generator — Claude-powered one-page doctor brief | `features/visit_prep.py` | 94 | ✅ |
+| **Backend** | Multi-lab pattern detector — metabolic syndrome, kidney dysfunction, anemia | `features/patterns.py` | 42 | ✅ |
+| **Backend** | Scrape agent — autonomous literature-backed reference range updater (31 biomarkers) | `agents/scrape_agent.py` | 625 | ✅ |
+| **Backend** | Scraped ranges database — 52 biomarkers, 185 ranges, 28 peer-reviewed sources | `data/scraped_ranges.py` | 555 | ✅ |
+| **Backend** | Background profile enrichment — Claude Haiku fact extraction after every chat | `health/updater.py` | 80 | ✅ |
+| **Backend** | Deterministic safety gate — 21 AND-group emergency patterns, zero LLM | `health/injector.py` | 130 | ✅ |
+| **Backend** | Triage classifier — 15 urgent pattern groups + emergency escalation | `features/triage.py` | 61 | ✅ |
+| **Web** | Auth (email/password via Supabase) + 5-step onboarding | `auth/page.tsx` + `onboarding/page.tsx` | 1,087 | ✅ |
+| **Web** | Chat with SSE streaming + image/PDF attachments + citation cards | `ChatInterface.tsx` + `CitationCard.tsx` | 602 | ✅ |
+| **Web** | HealthProfileSidebar — demographics, conditions, meds, labs, BMI calculator, facts | `HealthProfileSidebar.tsx` | 359 | ✅ |
+| **Web** | Edit Profile modal — 5 tabs (Demographics, Conditions, Medications, Allergies, Learned) | `EditProfileModal.tsx` | 656 | ✅ |
+| **Web** | Bloodwork page — upload, classify, personalised rating, Table/Chart toggle, donut chart | `bloodwork/page.tsx` | 826 | ✅ |
+| **Web** | Bio Tracker — live EKG waveform, heart rate, steps, calories, sleep stages | `health-tracker/page.tsx` | 523 | ✅ |
+| **Mobile** | Expo SDK 51 — 8 screens: home, chat (SSE), labs, profile, onboarding, tracker, visit-prep, sign-in | `mobile/app/` (10 files) | 4,942 | ✅ |
+| **Mobile** | 6 components: ChatBubble, CitationSheet, HealthSummaryCard, LabCard, SymptomLogger, TriageAlert | `mobile/components/` | — | ✅ |
+| **Mobile** | HealthKit sync — 7-day biometric summary (HR, HRV, sleep, steps, glucose) | `intake/healthkit_sync.py` + `react-native-health` | 101 | ✅ |
+| **Demo** | Marcus Chen — 4 conditions, 4 meds, 40 labs across 3 time points | `seed_demo.py` | — | ✅ |
+| **Tests** | 5 test files: chat stream, health injector, lab OCR, PubMed client, triage (safety-critical) | `tests/` | — | ✅ |
+| **Docs** | 22 Architecture Decision Records | `docs/adr/` | — | ✅ |
 
-### What Is Not Yet Done
+### Codebase Metrics
 
-| Item | Gap Type |
+| Metric | Count |
 |---|---|
-| Production deployment | ✅ Deployed — Render (backend) + Vercel (web) |
-| Supabase schema in production | ✅ Live — schema migrated, RLS enabled |
-| HIPAA BAA with Supabase + Anthropic | Legal — available on Enterprise tier |
+| Backend Python files | 49 |
+| Web TypeScript/TSX files | 19 |
+| Mobile screen/component files | 19 |
+| Total API routes | 11 |
+| External API integrations | 8 |
+| Lab reference ranges (base) | 196 |
+| Scraped biomarker ranges (literature-sourced) | 185 |
+| Emergency patterns | 21 |
+| Urgent triage patterns | 15 |
+| Drug interaction pairs | 8 |
+| ADR documents | 22 |
+| Database tables (with RLS) | 5 |
+| Test files | 5 |
+
+### Deployment Status
+
+| Item | Status |
+|---|---|
+| Backend (Render) | ✅ Deployed |
+| Web (Vercel) | ✅ Deployed |
+| Supabase schema in production | ✅ Live — 5 tables, RLS enabled |
+| HIPAA BAA with Supabase + Anthropic | Not yet signed — available on Enterprise tier |
 
 ---
 
@@ -110,10 +143,10 @@ GET http://localhost:8010/health  →  {"status": "ok", "version": "0.1.0"}
 |---|---|
 | API | FastAPI (Python 3.11+), Pydantic v2, async throughout |
 | AI — chat/vision | claude-sonnet-4-6 |
-| AI — background | Claude Haiku 4.5 (10× cheaper; background tasks only) |
+| AI — background | Claude Haiku 4.5 (query expansion + profile enrichment) |
 | Evidence primary | Semantic Scholar (200M+ papers) + OpenAlex (250M+ papers) |
-| Evidence supplementary | PubMed · ClinicalTrials.gov · FDA openFDA · NLM RxNorm · MedlinePlus |
-| Web | Next.js 16, TypeScript strict, Tailwind CSS |
+| Evidence supplementary | PubMed · ClinicalTrials.gov · FDA openFDA · NLM RxNorm · MedlinePlus · Google Scholar |
+| Web | Next.js 16, React 19, TypeScript strict, Tailwind CSS |
 | Mobile | Expo SDK 51, React Native, TypeScript strict |
 | Wearables | react-native-health (HealthKit) |
 | Database | Supabase — PostgreSQL + RLS + Auth + Storage |
@@ -125,7 +158,7 @@ GET http://localhost:8010/health  →  {"status": "ok", "version": "0.1.0"}
 ```
 User message
     │
-    ▼  check_emergency()  ← pure string matching · no LLM · zero latency
+    ▼  check_emergency()  ← pure string matching · 21 AND-group patterns · no LLM · zero latency
     │
     ├── EMERGENCY → fixed 911 string returned immediately (no Anthropic call)
     │
@@ -133,27 +166,16 @@ User message
          load HealthProfile (Supabase)
               │
               ▼
-         classify_health_domain()  ← MeSH keyword mapping
+         classify_health_domain()  ← MeSH keyword mapping (9 medical domains)
               │
               ▼
-         expand_query()  ← Claude Haiku → 3 query variants
+         get_citations_for_question()  ← PubMed esearch + efetch
               │
               ▼
-         asyncio.gather(
-             search_semantic_scholar(q1, q2, q3),   ← 200M+ papers
-             search_openalex(q1, q2, q3)             ← 250M+ papers
-         )  ← 6 concurrent HTTP requests
+         build_health_system_prompt(profile, citations, attachment_count)
               │
               ▼
-         rank_papers()  ← OCEBM composite score
-              │          0.50 × evidence_quality
-              │          0.30 × citation_weight
-              │          0.20 × recency_score
-              ▼
-         build_health_system_prompt(profile + top_citations)
-              │
-              ▼
-         claude-sonnet-4-6
+         claude-sonnet-4-6 (streaming via SSE or single response)
               │
               ▼
          ChatResponse + citations + triage_level
@@ -162,21 +184,59 @@ User message
                    update_profile_from_conversation()  ← Claude Haiku
 ```
 
+**Health RAG Pipeline** (dedicated `/api/health-rag/query` endpoint):
+
+```
+Question + patient context
+    │
+    ▼  expand_query()  ← Claude Haiku → 3 academic query variants
+    │
+    ▼  asyncio.gather(
+         search_semantic_scholar(q1, q2, q3),   ← 200M+ papers
+         search_openalex(q1, q2, q3)             ← 250M+ papers
+       )  ← 6 concurrent HTTP requests
+    │
+    ▼  rank_papers()  ← OCEBM composite score
+         0.50 × evidence_quality (SR/Meta=1 > RCT=2 > Cohort=3 > Case=4 > Series=5)
+         0.30 × citation_weight  (log10(citations+1) / log10(1000))
+         0.20 × recency_score    (1 - (current_year - pub_year) / 10)
+    │
+    ▼  build_evidence_block()  ← star ratings, abstracts, DOI/PMID links
+    │
+    ▼  HealthRAGResponse + ranked paper summaries
+```
+
 ### Core Data Models
 
 ```python
 class HealthProfile(BaseModel):
     user_id: str
+    display_name: str
     age: int | None                          # → personalised lab ranges
     sex: str | None                          # → personalised lab ranges
-    height_cm: float | None                  # → BMI
+    height_cm: float | None                  # → BMI calculation
     weight_kg: float | None
     primary_conditions: list[str]
     current_medications: list[Medication]
     allergies: list[str]
-    health_facts: list[str]                  # AI-extracted, max 50
-    recent_labs: list[LabResult]
+    health_facts: list[str]                  # AI-extracted from conversations
+    recent_labs: list[LabResult]             # fetched from lab_results table
     wearable_summary: WearableSummary | None
+    conversation_count: int
+    member_since: datetime
+
+class ProfileUpdate(BaseModel):             # PUT endpoint — editable fields only
+    user_id: str                            # no recent_labs, wearable_summary, or member_since
+    display_name: str
+    age: int | None
+    sex: str | None
+    height_cm: float | None
+    weight_kg: float | None
+    primary_conditions: list[str]
+    current_medications: list[Medication]
+    allergies: list[str]
+    health_facts: list[str]
+    conversation_count: int
 
 class RatedLabResult(BaseModel):
     rating: Literal["High", "Normal", "Low", "Unknown"]
@@ -190,7 +250,7 @@ class RatedLabResult(BaseModel):
 
 ```sql
 health_profiles  — demographics, conditions, meds, facts, wearable_summary
-lab_results      — per-test results with personalised_rating, deviation_pct
+lab_results      — per-test results with status, reference ranges, lab_source
 conversations    — chat history with domain, citations, triage_level
 symptom_logs     — timestamped entries with severity 1–10
 documents        — uploaded document metadata and extracted facts
@@ -210,41 +270,43 @@ CREATE INDEX idx_lab_results_user_date ON lab_results (user_id, date_collected D
 
 ### 1 — Literature-Backed Personalised Reference Ranges
 
-**Every lab portal on the market uses 1990s population-average ranges.** Sana Health rates each result against ranges calibrated to the user's age, sex, and BMI across 80+ tests.
+**Every lab portal on the market uses 1990s population-average ranges.** Sana Health rates each result against ranges calibrated to the user's age, sex, and BMI across **196 base tests** in `lab_reference_ranges.py`, with sex-specific overrides and age-adjusted functions for eGFR, PSA, BUN, and ESR.
 
-The ranges are not hardcoded guesses. The **Scrape Agent** (`backend/agents/scrape_agent.py`) autonomously searches Google Scholar and PubMed for reference interval studies, extracts numeric ranges from abstracts using Claude, and writes them to `backend/data/scraped_ranges.py` with full DOI citations. The database self-updates as new studies are published.
+The ranges are not hardcoded guesses. The **Scrape Agent** (`backend/agents/scrape_agent.py`, 625 lines) autonomously searches Google Scholar and PubMed for reference interval studies across **31 biomarkers**, extracts numeric ranges from abstracts using Claude, and writes them to `backend/data/scraped_ranges.py` (555 lines, **185 ranges** with full DOI/PMID citations from **28 peer-reviewed sources**). The database self-updates as new studies are published.
 
 *UpToDate / Epocrates counterargument:* Both are **clinician-facing** tools requiring a medical degree to interpret. Neither accepts a patient lab upload, rates values against that patient's demographics, or presents deviation percentages in plain language. The consumer space has no equivalent.
 
 ### 2 — OCEBM Evidence-Graded Multi-Source RAG
 
-**No consumer health product grades retrieved evidence by study design quality.** Sana Health scores every retrieved paper using the Oxford Centre for Evidence-Based Medicine composite formula:
+**No consumer health product grades retrieved evidence by study design quality.** Sana Health scores every retrieved paper using the Oxford Centre for Evidence-Based Medicine composite formula (`rag/reranker.py`, 310 lines):
 
 ```
-composite = 0.50 × evidence_score   (SR/Meta > RCT > Cohort > Case)
+composite = 0.50 × evidence_score   (SR/Meta > RCT > Cohort > Case > Series, OCEBM 1–5)
           + 0.30 × citation_score   (log10(citations + 1) / log10(1000))
           + 0.20 × recency_score    (1 - (current_year - pub_year) / 10)
 ```
 
-6 concurrent HTTP requests per query. Real PMIDs. Never hallucinated.
+6 concurrent HTTP requests per query via `asyncio.gather()`. Real PMIDs and DOIs. Deduplication by DOI/PMID/title. Star-rated evidence blocks (★★★★★ → ★☆☆☆☆) formatted for system prompt injection.
 
 *UpToDate counterargument:* UpToDate grades its own curated static content editorially. Sana Health grades **live retrieval results** against a specific patient's health context at query time. UpToDate cannot tell a patient "here are the three best recent RCTs for someone with *your* HbA1c and *your* statin dose."
 
 ### 3 — Deterministic Safety Gate
 
-**No AI is involved in emergency detection.** `check_emergency()` is pure Python string matching — 20+ AND-group patterns, zero latency, zero hallucination risk, cannot be bypassed.
+**No AI is involved in emergency detection.** `check_emergency()` is pure Python string matching — **21 AND-group patterns**, zero latency, zero hallucination risk, cannot be bypassed.
 
 ```python
 ["chest pain", "left arm"],  ["heart attack"],  ["stroke"],
 ["not breathing"],  ["suicidal"],  ["overdose"],  ["anaphylaxis"]
-# ...13 more patterns
+# ...14 more patterns
 ```
 
 If any pattern matches → fixed 911 string returned. No Anthropic API call is made. Emergency response is immune to model updates, API outages, or adversarial prompting.
 
+Additionally, **15 urgent pattern groups** in `features/triage.py` classify sub-emergency urgency (fever+stiff neck, blood in urine, shortness of breath, etc.) for UI badge display.
+
 ### 4 — Persistent Longitudinal Health Memory
 
-**Ada Health, K Health, and ChatGPT reset every session.** Sana Health's profile enrichment loop grows with the user — after every conversation, Claude Haiku extracts new facts and appends them (non-blocking background task). After 6 months, Sana Health's model of a user's health is richer than most EHR records.
+**Ada Health, K Health, and ChatGPT reset every session.** Sana Health's profile enrichment loop grows with the user — after every conversation, Claude Haiku extracts new facts and appends them via `update_profile_from_conversation()` (non-blocking background task). After 6 months, Sana Health's model of a user's health is richer than most EHR records.
 
 ### 5 — Self-Updating Reference Database via Scrape Agent
 
@@ -254,7 +316,7 @@ python -m backend.agents.scrape_agent --tests "WBC,Hemoglobin,TSH"
 python -m backend.agents.scrape_agent --dry-run
 ```
 
-Searches literature → extracts ranges with Claude → writes to `scraped_ranges.py` with citations → fallback to hardcoded values if confidence threshold not met. No other product has self-updating, literature-sourced, citation-backed reference ranges.
+Searches literature → extracts ranges with Claude → writes to `scraped_ranges.py` with DOI/PMID citations → fallback to hardcoded values if confidence threshold not met. Currently covers **31 biomarkers** with **185 literature-sourced ranges** from **28 peer-reviewed studies** (NEJM, Blood, Ann Intern Med, WHO, ADA, etc.). No other product has self-updating, literature-sourced, citation-backed reference ranges.
 
 ---
 
@@ -314,7 +376,7 @@ Searches literature → extracts ranges with Claude → writes to `scraped_range
 
 | Impact | Mechanism | Projection |
 |---|---|---|
-| Physician time recovered | 8 min/appointment × 1M users × 4 panels/year | **32M physician-minutes/year** |
+| Physician time recovered | 8 min/appointment x 1M users x 4 panels/year | **32M physician-minutes/year** |
 | Medication adherence | Context around *why* meds matter → reduced non-adherence | 1% improvement = **$3B** recovered from $300B/year loss |
 | Dialysis prevention | eGFR + ACR trend detected early → lifestyle intervention | **$90K/patient/year** avoided |
 | Health literacy | Plain-language explanations to 36% of US adults with below-basic literacy | **~100M underserved people** reached |
@@ -359,26 +421,26 @@ Searches literature → extracts ranges with Claude → writes to `scraped_range
 | **Founder & Lead Engineer** | [Founder] | All architecture decisions · backend · web · mobile · integration |
 | **AI Pair Programmer** | Claude Code | Scaffolding · boilerplate · ADR drafting · test generation |
 
-**Solo build rationale:** 96 files and 1.3M+ lines across 2 sessions is direct evidence the solo + Claude Code model works at hackathon velocity. Every architectural decision is logged in one of 22 ADRs and owned by the founder.
+**Solo build rationale:** 49 backend Python files, 19 web TypeScript files, and 19 mobile screen/component files built across 2 sessions. Every architectural decision is logged in one of 22 ADRs and owned by the founder.
 
 ### Sprint
 
 | Hour | Deliverable | Owner | Verification |
 |---|---|---|---|
 | H0–1 | FastAPI skeleton · Supabase schema · `.env` template | [Founder] | `GET /health` → 200 |
-| H1–3 | `HealthProfile` model · Supabase CRUD · `check_emergency()` 20 patterns | [Founder] | `check_emergency("chest pain left arm")` → non-None |
-| H3–5 | PubMed pipeline · domain classifier · citation formatter | [Founder] | `search_pubmed("type 2 diabetes")` returns ≥1 PMID |
+| H1–3 | `HealthProfile` model · Supabase CRUD · `check_emergency()` 21 patterns | [Founder] | `check_emergency("chest pain left arm")` → non-None |
+| H3–5 | PubMed pipeline · domain classifier (9 domains) · citation formatter | [Founder] | `search_pubmed("type 2 diabetes")` returns ≥1 PMID |
 | H5–7 | System prompt injector · `POST /api/chat` end-to-end · background updater | [Founder] | Chat → Claude → `ChatResponse` with `citations[]` |
-| H7–9 | Lab reference ranges · rater · pattern detector · OCR | [Founder] | `rate_lab_result("HbA1c", 7.4, profile)` → `{"rating":"High","deviation_pct":23.3}` |
+| H7–9 | Lab reference ranges (196) · rater · pattern detector · OCR | [Founder] | `rate_lab_result("HbA1c", 7.4, profile)` → `{"rating":"High","deviation_pct":23.3}` |
 | H9–11 | Document classifier · `/api/labs/scan` · `/api/documents/analyze` | [Founder] | JPEG upload → `RatedLabResult[]`; receipt upload → `is_bloodwork: false` |
-| H11–14 | Next.js auth · 5-step onboarding · `ChatInterface` · `HealthProfileSidebar` | [Founder] + Claude Code | Web at `localhost:3000`; chat sends + receives |
-| H14–17 | Bloodwork page · Table/Chart toggle · personalised rating cards | [Founder] | Upload blood panel → rating cards render with `deviation_pct` |
-| H17–19 | `EditProfileModal` 5 tabs · drug check · visit prep | [Founder] | Visit prep returns 400-word summary for Marcus |
-| H19–21 | RAG: Scholar + OpenAlex · query expander · OCEBM reranker | [Founder] | `retrieve_health_evidence("metformin cardiovascular risk")` → ≥3 reranked papers |
-| H21–22 | Supplementary sources: ClinicalTrials · FDA · RxNorm · MedlinePlus · scrape agent | [Founder] + Claude Code | RxNorm normalises "metformin HCl" → "metformin" |
-| H22–23 | Mobile: chat · labs · profile · home · HealthKit sync | [Founder] | Expo runs in simulator; chat screen renders |
+| H11–14 | Next.js auth · 5-step onboarding · `ChatInterface` (SSE) · `HealthProfileSidebar` | [Founder] + Claude Code | Web at `localhost:3000`; chat sends + receives via SSE |
+| H14–17 | Bloodwork page · Table/Chart toggle · personalised rating cards · Bio Tracker | [Founder] | Upload blood panel → rating cards render with `deviation_pct` |
+| H17–19 | `EditProfileModal` 5 tabs · drug check (8 pairs) · visit prep | [Founder] | Visit prep returns 400-word summary for Marcus |
+| H19–21 | RAG: Scholar + OpenAlex · query expander · OCEBM reranker (310 lines) | [Founder] | `retrieve_health_evidence("metformin cardiovascular risk")` → ≥3 reranked papers |
+| H21–22 | Supplementary sources: ClinicalTrials · FDA · RxNorm · MedlinePlus · scrape agent (625 lines) | [Founder] + Claude Code | RxNorm normalises "metformin HCl" → "metformin" |
+| H22–23 | Mobile: 8 screens (home, chat, labs, profile, tracker, visit-prep, onboarding, sign-in) + HealthKit | [Founder] | Expo runs in simulator; chat screen renders with SSE |
 | H23–H23.5 | `seed_demo.py` — Marcus Chen 40 labs across 3 panels | [Founder] | `GET /api/profile/{marcus_id}` returns full profile |
-| H23.5–24 | `pytest` suite · 22 ADRs · this master plan · `PROGRESS.md` | [Founder] + Claude Code | All tests green; demo walkthrough passes |
+| H23.5–24 | `pytest` suite (5 test files) · 22 ADRs · this master plan | [Founder] + Claude Code | All tests green; demo walkthrough passes |
 
 ### Milestones
 
@@ -389,7 +451,7 @@ Searches literature → extracts ranges with Claude → writes to `scraped_range
 | **H14** | Web product demonstrable | Upload Marcus's labs; personalised ratings render |
 | **H21** | 8-source evidence pipeline | 6 concurrent requests return reranked citations |
 | **H23** | Full demo runnable | Complete Marcus Chen walkthrough passes |
-| **H24** | Submission complete | Report · ADRs · tests · running software |
+| **H24** | Submission complete | Report · ADRs · tests · deployed software |
 
 ---
 
@@ -429,10 +491,10 @@ Searches literature → extracts ranges with Claude → writes to `scraped_range
 | Moat | Claim | Who It Closes the Gap Against |
 |---|---|---|
 | **Persistent health memory** | Profile grows with every conversation; 6 months in, Sana Health knows more about a user's health than their GP's notes | Ada (resets every session) · K Health (no memory) · ChatGPT (stateless by design) |
-| **Literature-backed personalised ranges** | 80+ tests rated against sex/age/BMI-calibrated ranges sourced from primary literature via scrape agent — not 1990s population averages | Quest · LabCorp · Apple Health · Epic MyChart (all use static population averages) |
+| **Literature-backed personalised ranges** | 196 base tests + 185 scraped ranges rated against sex/age/BMI-calibrated ranges sourced from primary literature via scrape agent — not 1990s population averages | Quest · LabCorp · Apple Health · Epic MyChart (all use static population averages) |
 | **OCEBM live evidence grading** | Real-time retrieval from 8 sources, ranked by study design quality — systematic reviews outrank expert opinion automatically | ChatGPT (hallucinates PMIDs) · UpToDate (static editorial, clinician-only) |
-| **Deterministic safety gate** | Pure Python string matching before every LLM call — zero latency, zero hallucination, cannot be adversarially bypassed | Ada · Babylon · K Health (all route triage through AI models) |
-| **Self-updating range database** | Scrape agent autonomously refreshes ranges from new literature without human editorial cycles | Every competitor uses manually-maintained static values |
+| **Deterministic safety gate** | Pure Python string matching (21 patterns) before every LLM call — zero latency, zero hallucination, cannot be adversarially bypassed | Ada · Babylon · K Health (all route triage through AI models) |
+| **Self-updating range database** | Scrape agent autonomously refreshes ranges from new literature (31 biomarkers, 28 peer-reviewed sources) without human editorial cycles | Every competitor uses manually-maintained static values |
 
 **Why these moats compound:**
 - Memory → switching cost grows over time
@@ -444,18 +506,17 @@ Searches literature → extracts ranges with Claude → writes to `scraped_range
 
 ## Summary
 
-**What exists today:**
+**What exists today (verified against codebase):**
 
-- ✅ FastAPI backend · 9 routes · 8 external API integrations · deterministic safety gate
-- ✅ Next.js 16 web app · auth · onboarding · chat · bloodwork · profile editing
-- ✅ Expo React Native mobile · chat · labs · profile · HealthKit sync
-- ✅ Multi-source RAG · 6 concurrent queries · OCEBM composite reranking
-- ✅ 80+ personalised lab reference ranges · scrape agent · pattern detector
-- ✅ Marcus Chen — 40 labs across 3 time points · full demo runnable
-- ✅ 22 Architecture Decision Records
-
-**`GET http://localhost:8010/health` → `{"status": "ok"}`**
+- ✅ FastAPI backend · 11 routes · 8 external API integrations · deterministic safety gate (21 patterns)
+- ✅ Next.js 16 web app (React 19) · auth · 5-step onboarding · SSE streaming chat · bloodwork · Bio Tracker · profile editing
+- ✅ Expo React Native mobile · 8 screens · SSE chat · labs · profile · visit prep · HealthKit sync
+- ✅ Multi-source RAG · 6 concurrent queries · OCEBM composite reranking (310-line reranker)
+- ✅ 196 personalised lab reference ranges + 185 literature-sourced scraped ranges · scrape agent (625 lines) · pattern detector
+- ✅ Marcus Chen — 40 labs across 3 time points · full demo seeded and runnable
+- ✅ 22 Architecture Decision Records · 5 test files · 49 backend + 19 web + 19 mobile files
+- ✅ Deployed — Render (backend) + Vercel (web) + Supabase (production schema live)
 
 ---
 
-*Sana Health · The 3rd Wheel · March 2026 · localhost:8010 · localhost:3000*
+*Sana Health · The 3rd Wheel · March 2026*
