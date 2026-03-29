@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { HealthProfile, Medication } from '../../lib/types';
+import { supabase } from '../../lib/supabase';
 
 /** Step index for the 5-step onboarding flow. */
 type OnboardingStep = 0 | 1 | 2 | 3 | 4;
@@ -117,6 +118,10 @@ export default function OnboardingScreen(): React.ReactElement {
   const [step, setStep] = useState<OnboardingStep>(0);
   const [loading, setLoading] = useState<boolean>(false);
 
+  // ── Credentials (collected on step 0, used at submit) ─────────────────
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+
   // ── Step 0 ─────────────────────────────────────────────────────────────
   const [displayName, setDisplayName] = useState<string>('');
   const [age, setAge] = useState<string>('');
@@ -208,9 +213,26 @@ export default function OnboardingScreen(): React.ReactElement {
       Alert.alert('Required', 'Please enter your name.');
       return;
     }
+    if (!email.trim() || !password) {
+      Alert.alert('Required', 'Please enter your email and a password.');
+      return;
+    }
+    if (password.length < 6) {
+      Alert.alert('Password too short', 'Password must be at least 6 characters.');
+      return;
+    }
     setLoading(true);
     try {
-      // Convert ft/in → cm and lbs → kg for storage
+      // Step 1: Create Supabase account to get a real user ID.
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (signUpError) throw new Error(signUpError.message);
+      const userId = authData.user?.id;
+      if (!userId) throw new Error('Account created but user ID missing.');
+
+      // Step 2: Convert ft/in → cm and lbs → kg for storage.
       const hFt = parseFloat(heightFt);
       const hIn = parseFloat(heightIn || '0');
       const heightCm = !isNaN(hFt)
@@ -240,21 +262,22 @@ export default function OnboardingScreen(): React.ReactElement {
         conversation_count: 0,
       };
 
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8010'}/api/profile`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...profile, user_id: 'placeholder' }),
-        },
-      );
+      // Step 3: POST health profile with the real Supabase user ID.
+      const apiBase = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
+      const response = await fetch(`${apiBase}/api/profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...profile, user_id: userId }),
+      });
 
       if (!response.ok) throw new Error('Failed to save profile');
-      router.replace('/(app)/home');
+
+      // Step 4: Auth state change from signUp fires the root layout listener,
+      // which navigates to (app)/home automatically.
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'An unexpected error occurred.';
-      Alert.alert('Error', `Failed to save your profile: ${message}`);
+      Alert.alert('Error', `Failed to create your account: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -273,9 +296,31 @@ export default function OnboardingScreen(): React.ReactElement {
 
         <Text style={styles.title}>{STEP_TITLES[step]}</Text>
 
-        {/* ── Step 0: Basic info ─────────────────────────────────────────── */}
+        {/* ── Step 0: Account credentials + basic info ──────────────────── */}
         {step === 0 && (
           <View style={styles.fields}>
+            <Text style={styles.fieldLabel}>Email</Text>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <Text style={styles.fieldLabel}>Password</Text>
+            <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="At least 6 characters"
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              secureTextEntry
+            />
+
             <Text style={styles.fieldLabel}>Your name</Text>
             <TextInput
               style={styles.input}
@@ -532,6 +577,16 @@ export default function OnboardingScreen(): React.ReactElement {
           </View>
         )}
 
+        {/* ── Already have an account? (step 0 only) ───────────────────── */}
+        {step === 0 && (
+          <View style={styles.signInRow}>
+            <Text style={styles.signInText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => router.replace('/(auth)/sign-in')}>
+              <Text style={styles.signInLink}>Sign in</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* ── Primary action button ─────────────────────────────────────── */}
         <TouchableOpacity
           style={[styles.nextButton, loading && styles.nextButtonDisabled]}
@@ -681,4 +736,9 @@ const styles = StyleSheet.create({
   nextButtonDisabled: { backgroundColor: 'rgba(14,165,233,0.4)' },
 
   nextButtonText: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+
+  /** "Already have an account?" row on step 0. */
+  signInRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 16 },
+  signInText: { fontSize: 14, color: 'rgba(255,255,255,0.5)' },
+  signInLink: { fontSize: 14, color: '#38bdf8', fontWeight: '600' },
 });

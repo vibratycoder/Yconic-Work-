@@ -16,39 +16,47 @@ import {
 import { router } from 'expo-router';
 import { HealthProfile } from '../../lib/types';
 import { fetchHealthProfile } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 import { HealthSummaryCard } from '../../components/HealthSummaryCard';
 import { LabCard } from '../../components/LabCard';
-
-const DEMO_USER_ID = '274f67e3-77d8-46a4-8ddc-a1978131ca56';
 
 /**
  * Main home screen showing health overview and quick-access actions.
  *
- * Loads the user's HealthProfile on mount and displays:
+ * Loads the authenticated user's HealthProfile on mount and displays:
  * - Memory indicator card (conditions + meds count)
  * - Recent abnormal labs
  * - Quick-access buttons for chat and lab scan
  */
 export default function HomeScreen(): React.ReactElement {
+  const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<HealthProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Resolve the authenticated user ID once on mount.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUserId(data.session?.user.id ?? null);
+    });
+  }, []);
+
   const loadProfile = useCallback(async (): Promise<void> => {
+    if (!userId) return;
     try {
-      const data = await fetchHealthProfile(DEMO_USER_ID);
+      const data = await fetchHealthProfile(userId);
       setProfile(data);
-    } catch (error) {
-      // Profile not found — prompt onboarding
+    } catch {
+      // Profile not found — new user, onboarding will create it.
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
-    void loadProfile();
-  }, [loadProfile]);
+    if (userId) void loadProfile();
+  }, [userId, loadProfile]);
 
   const onRefresh = useCallback((): void => {
     setRefreshing(true);
@@ -114,11 +122,11 @@ function getTimeOfDay(): string {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB' },
+  container: { flex: 1, backgroundColor: '#04090f' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#04090f' },
   content: { paddingBottom: 32 },
   header: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16 },
-  greeting: { fontSize: 26, fontWeight: '800', color: '#111827' },
+  greeting: { fontSize: 26, fontWeight: '800', color: '#FFFFFF' },
   quickActions: { paddingHorizontal: 16, marginBottom: 24 },
   askButton: {
     backgroundColor: '#0EA5E9', borderRadius: 16, padding: 20,
@@ -127,6 +135,6 @@ const styles = StyleSheet.create({
   askButtonText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
   askButtonSub: { fontSize: 13, color: 'rgba(255,255,255,0.8)' },
   section: { paddingHorizontal: 16, marginBottom: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 12 },
   seeAll: { fontSize: 14, color: '#0EA5E9', fontWeight: '600', textAlign: 'center', paddingVertical: 8 },
 });

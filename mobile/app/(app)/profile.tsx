@@ -27,10 +27,9 @@ import {
 } from 'react-native';
 import { HealthProfile, Medication } from '../../lib/types';
 import { fetchHealthProfile, updateHealthProfile } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 
 // ── Constants ──────────────────────────────────────────────────────────────
-
-const DEMO_USER_ID = '274f67e3-77d8-46a4-8ddc-a1978131ca56';
 
 /** Available profile-editor tabs, matching the web EditProfileModal order. */
 type TabId = 'demographics' | 'conditions' | 'medications' | 'allergies' | 'lifestyle';
@@ -233,6 +232,15 @@ function TogglePill({ label, active, onPress }: TogglePillProps): React.ReactEle
  * - Wearable summary is rendered below the tabs as a read-only card.
  */
 export default function ProfileScreen(): React.ReactElement {
+  // ── Authenticated user ────────────────────────────────────────────────
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUserId(data.session?.user.id ?? null);
+    });
+  }, []);
+
   // ── Remote data ────────────────────────────────────────────────────────
   const [profile, setProfile] = useState<HealthProfile | null>(null);
   const [loading, setLoading]     = useState(true);
@@ -269,8 +277,9 @@ export default function ProfileScreen(): React.ReactElement {
   // ── Data loading ───────────────────────────────────────────────────────
 
   const loadProfile = useCallback(async (): Promise<void> => {
+    if (!userId) return;
     try {
-      const p = await fetchHealthProfile(DEMO_USER_ID);
+      const p = await fetchHealthProfile(userId);
       setProfile(p);
     } catch (err: unknown) {
       // Non-fatal — degrade gracefully; error is logged by the API layer.
@@ -279,9 +288,9 @@ export default function ProfileScreen(): React.ReactElement {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [userId]);
 
-  useEffect(() => { void loadProfile(); }, [loadProfile]);
+  useEffect(() => { if (userId) void loadProfile(); }, [userId, loadProfile]);
 
   // ── Edit mode helpers ──────────────────────────────────────────────────
 
@@ -351,7 +360,7 @@ export default function ProfileScreen(): React.ReactElement {
         patch = { health_facts: selectedFacts };
       }
 
-      const updated = await updateHealthProfile(DEMO_USER_ID, { ...profile, ...patch });
+      const updated = await updateHealthProfile(userId ?? '', { ...profile, ...patch });
       setProfile(updated);
       setEditing(false);
     } catch (err: unknown) {
@@ -941,6 +950,16 @@ export default function ProfileScreen(): React.ReactElement {
             )}
           </View>
         )}
+        {/* ── Sign Out ────────────────────────────────────────────────── */}
+        <TouchableOpacity
+          style={styles.signOutButton}
+          onPress={async () => {
+            await supabase.auth.signOut();
+            // Root layout listener handles navigation to sign-in automatically.
+          }}
+        >
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -963,6 +982,21 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 56,
+  },
+  signOutButton: {
+    marginHorizontal: 20,
+    marginBottom: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.3)',
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    alignItems: 'center',
+  },
+  signOutText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#ff453a',
   },
   emptyText: {
     textAlign: 'center',

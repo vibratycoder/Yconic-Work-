@@ -129,31 +129,14 @@ export async function analyzeDocument(
 }
 
 /**
- * Sync HealthKit data to the Pulse backend.
- *
- * @param userId - Authenticated Supabase user ID
- * @param payload - Raw HealthKit data payload
- * @returns Sync status and computed wearable summary
- */
-export async function syncHealthKit(userId: string, payload: object): Promise<{ status: string; summary: object }> {
-  const response = await fetch(`${API_BASE}/api/healthkit/sync?user_id=${userId}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) throw new Error(`HealthKit sync failed: ${response.status}`);
-  return response.json();
-}
-
-/**
  * Generate a doctor visit preparation summary.
  *
  * @param userId - Authenticated Supabase user ID
  * @returns Visit summary with medication list, abnormal labs, and doctor questions
  */
 export async function generateVisitPrep(userId: string): Promise<object> {
-  const response = await fetch(`${API_BASE}/api/visit-prep?user_id=${userId}`, {
-    method: 'POST',
+  const response = await fetch(`${API_BASE}/api/visit-prep/${userId}`, {
+    method: 'GET',
   });
   if (!response.ok) throw new Error(`Visit prep failed: ${response.status}`);
   return response.json();

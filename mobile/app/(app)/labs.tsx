@@ -32,12 +32,11 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { LabResult, RatedLabResult } from '../../lib/types';
 import { fetchHealthProfile, uploadLabScan, analyzeDocument } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-const DEMO_USER_ID = '274f67e3-77d8-46a4-8ddc-a1978131ca56';
 
 const DEMO_DATE = '2026-03-15';
 
@@ -403,6 +402,7 @@ function FilterPill({ label, count, active, onPress }: FilterPillProps): React.R
  * - Scan and Import buttons in the header retain all existing logic
  */
 export default function LabsScreen(): React.ReactElement {
+  const [userId, setUserId] = useState<string | null>(null);
   const [profileLabs, setProfileLabs] = useState<LabResult[]>([]);
   const [ratedMap, setRatedMap]       = useState<Map<string, RatedLabResult>>(new Map());
   const [loading, setLoading]         = useState(true);
@@ -411,6 +411,13 @@ export default function LabsScreen(): React.ReactElement {
   const [uploading, setUploading]     = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterOption>('All');
   const [viewMode, setViewMode]         = useState<ViewMode>('Table');
+
+  // Resolve the authenticated user ID on mount.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUserId(data.session?.user.id ?? null);
+    });
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Data loading
@@ -421,8 +428,9 @@ export default function LabsScreen(): React.ReactElement {
    * Errors are non-fatal — the demo data will display instead.
    */
   const loadLabs = useCallback(async (): Promise<void> => {
+    if (!userId) return;
     try {
-      const profile = await fetchHealthProfile(DEMO_USER_ID);
+      const profile = await fetchHealthProfile(userId);
       setProfileLabs(profile?.recent_labs ?? []);
     } catch {
       // Non-fatal: fall through to demo data
@@ -430,9 +438,9 @@ export default function LabsScreen(): React.ReactElement {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [userId]);
 
-  useEffect((): void => { void loadLabs(); }, [loadLabs]);
+  useEffect((): void => { if (userId) void loadLabs(); }, [userId, loadLabs]);
 
   // ---------------------------------------------------------------------------
   // Import handlers — logic preserved exactly from original file
@@ -457,7 +465,7 @@ export default function LabsScreen(): React.ReactElement {
     setScanning(true);
     try {
       const scanResult = await uploadLabScan(
-        DEMO_USER_ID,
+        userId ?? '',
         result.assets[0].uri,
         result.assets[0].mimeType ?? 'image/jpeg',
       );
@@ -495,7 +503,7 @@ export default function LabsScreen(): React.ReactElement {
     setUploading(true);
     try {
       const analysis = await analyzeDocument(
-        DEMO_USER_ID,
+        userId ?? '',
         asset.uri,
         asset.mimeType ?? 'image/jpeg',
       );

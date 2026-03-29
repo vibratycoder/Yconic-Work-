@@ -42,8 +42,7 @@ import { CitationSheet } from '../../components/CitationSheet';
 import { TriageAlert } from '../../components/TriageAlert';
 import { ChatMessage, Citation } from '../../lib/types';
 import { sendChatMessage } from '../../lib/api';
-
-const DEMO_USER_ID = '274f67e3-77d8-46a4-8ddc-a1978131ca56';
+import { supabase } from '../../lib/supabase';
 
 /** Maximum number of image attachments allowed per message. */
 const MAX_ATTACHMENTS = 3;
@@ -144,6 +143,7 @@ function EmptyState(): React.ReactElement {
  * - Dark design system matching web ChatInterface
  */
 export default function ChatScreen(): React.ReactElement {
+  const [userId, setUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -152,6 +152,13 @@ export default function ChatScreen(): React.ReactElement {
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
+
+  // Resolve the authenticated user ID on mount.
+  React.useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUserId(data.session?.user.id ?? null);
+    });
+  }, []);
 
   // ── Scroll ──────────────────────────────────────────────────────────────────
 
@@ -320,7 +327,7 @@ export default function ChatScreen(): React.ReactElement {
     scrollToEnd();
 
     try {
-      const response = await sendChatMessage(DEMO_USER_ID, question, conversationId);
+      const response = await sendChatMessage(userId ?? '', question, conversationId);
 
       if (response.conversation_id) {
         setConversationId(response.conversation_id);
