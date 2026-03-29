@@ -44,8 +44,8 @@ interface EditProfileModalProps {
   profile: HealthProfile;
   /** User ID for the PUT request. */
   userId: string;
-  /** Called after a successful save with the updated profile. */
-  onSaved: (updated: HealthProfile) => void;
+  /** Called after a successful save. */
+  onSaved: () => void;
   /** Called when the modal should close without saving. */
   onClose: () => void;
 }
@@ -100,6 +100,7 @@ export function EditProfileModal({
   const [customFact, setCustomFact] = useState('');
 
   // Demographics
+  const [displayName, setDisplayName] = useState<string>(profile.display_name ?? '');
   const initHeight = cmToFtIn(profile.height_cm);
   const [age, setAge] = useState<string>(profile.age != null ? String(profile.age) : '');
   const [sex, setSex] = useState<string>(profile.sex ?? '');
@@ -176,12 +177,11 @@ export function EditProfileModal({
     setSaving(true);
     setError(null);
     try {
-      // Explicitly construct payload — do NOT spread profile.recent_labs back.
-      // Labs live in a separate table and their computed fields (is_abnormal,
-      // display_value) cause Pydantic validation errors when round-tripped.
-      const updated = await updateHealthProfile(userId, {
+      // Send only editable fields — backend ProfileUpdate model does not
+      // include recent_labs, wearable_summary, or member_since.
+      await updateHealthProfile(userId, {
         user_id: profile.user_id,
-        display_name: profile.display_name,
+        display_name: displayName.trim() || profile.display_name,
         age: age ? parseInt(age, 10) : null,
         sex: sex || null,
         height_cm: ftInToCm(heightFt, heightIn),
@@ -190,17 +190,15 @@ export function EditProfileModal({
         current_medications: medications,
         allergies,
         health_facts: healthFacts,
-        recent_labs: [],           // not managed here; backend re-fetches from lab_results
-        wearable_summary: profile.wearable_summary ?? undefined,
         conversation_count: profile.conversation_count,
       });
-      onSaved(updated);
+      onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save. Please try again.');
     } finally {
       setSaving(false);
     }
-  }, [userId, profile, age, sex, heightFt, heightIn, weightLbs, conditions, medications, allergies, healthFacts, onSaved]);
+  }, [userId, profile, displayName, age, sex, heightFt, heightIn, weightLbs, conditions, medications, allergies, healthFacts, onSaved]);
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'demographics', label: 'Basics' },
@@ -264,6 +262,18 @@ export function EditProfileModal({
               <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 Used to personalise lab reference ranges and clinical context.
               </p>
+              {/* Display name */}
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>Name</label>
+                <input
+                  type="text"
+                  placeholder="Your name"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="w-full rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </div>
               {/* Age */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>Age</label>

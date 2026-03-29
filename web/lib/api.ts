@@ -122,7 +122,7 @@ export async function streamChatMessage(
  * @param profile - Updated HealthProfile data
  * @returns Saved HealthProfile
  */
-export async function updateHealthProfile(userId: string, profile: HealthProfile): Promise<HealthProfile> {
+export async function updateHealthProfile(userId: string, profile: Partial<HealthProfile>): Promise<HealthProfile> {
   const res = await fetch(`${API_BASE}/api/profile/${userId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },

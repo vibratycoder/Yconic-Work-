@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { HealthProfile } from '../lib/types';
 import { FACT_CATEGORIES } from '../lib/health-facts';
 
@@ -253,6 +253,11 @@ function BmiCalculator({ heightCm, weightKg }: BmiCalculatorProps): React.ReactE
   const [ft,  setFt]  = useState<string>(String(profileFt));
   const [ins, setIns] = useState<string>(String(profileIn));
   const [lbs, setLbs] = useState<string>(String(profileLbs));
+
+  // Re-sync local state when the profile values change (e.g. after Edit Profile save)
+  useEffect(() => { setFt(String(profileFt)); },  [profileFt]);
+  useEffect(() => { setIns(String(profileIn)); },  [profileIn]);
+  useEffect(() => { setLbs(String(profileLbs)); }, [profileLbs]);
 
   const heightM = ((Number(ft) * 12) + Number(ins)) * 0.0254;
   const weightK = Number(lbs) * 0.453592;

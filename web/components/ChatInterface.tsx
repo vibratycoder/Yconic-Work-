@@ -248,7 +248,7 @@ export function ChatInterface({ userId }: ChatInterfaceProps): React.ReactElemen
         <EditProfileModal
           profile={profile}
           userId={userId}
-          onSaved={(updated) => { setProfile(updated); setEditProfileOpen(false); }}
+          onSaved={() => { void loadProfile(); setEditProfileOpen(false); }}
           onClose={() => setEditProfileOpen(false)}
         />
       )}

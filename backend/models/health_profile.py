@@ -222,3 +222,32 @@ class HealthProfile(BaseModel):
         if not parts:
             return "No health profile data available."
         return "\n".join(parts)
+
+
+class ProfileUpdate(BaseModel):
+    """
+    Subset of HealthProfile fields accepted by the PUT endpoint.
+
+    Excludes recent_labs (managed via lab_results table), wearable_summary
+    (managed via HealthKit sync), and member_since (immutable).
+    """
+    user_id: str
+    display_name: str = ""
+    age: int | None = None
+    sex: str | None = None
+    height_cm: float | None = None
+    weight_kg: float | None = None
+    primary_conditions: list[str] = Field(default_factory=list)
+    current_medications: list[Medication] = Field(default_factory=list)
+    allergies: list[str] = Field(default_factory=list)
+    health_facts: list[str] = Field(default_factory=list)
+    conversation_count: int = 0
+
+    def to_health_profile(self) -> HealthProfile:
+        """
+        Convert to a full HealthProfile for upsert_profile().
+
+        Returns:
+            HealthProfile with editable fields populated; labs/wearable left as defaults.
+        """
+        return HealthProfile(**self.model_dump())

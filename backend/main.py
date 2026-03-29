@@ -2,6 +2,7 @@
 from __future__ import annotations
 import json
 import os
+import uuid as _uuid
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 import anthropic
@@ -16,14 +17,14 @@ from backend.health.profile import get_profile, upsert_profile
 from backend.health.updater import update_profile_from_conversation
 from backend.evidence.pubmed import get_citations_for_question
 from backend.evidence.query_builder import classify_health_domain
-from backend.evidence.citation_formatter import format_citation_list
-from backend.intake.lab_ocr import extract_lab_results_from_image, extract_lab_results_from_pdf
-from backend.intake.document_classifier import classify_document
 from backend.features.lab_rater import rate_lab_results
+from backend.features.triage import classify_triage_level
 from backend.features.visit_prep import generate_visit_summary
 from backend.features.drug_interactions import check_drug_interactions
-from backend.models.health_profile import HealthProfile, Medication
-from backend.rag.health_rag import retrieve_health_evidence, inject_evidence_into_system_prompt
+from backend.intake.lab_ocr import extract_lab_results_from_image, extract_lab_results_from_pdf
+from backend.intake.document_classifier import classify_document
+from backend.models.health_profile import HealthProfile, Medication, ProfileUpdate
+from backend.rag.health_rag import retrieve_health_evidence
 from backend.utils.constants import CLAUDE_SONNET, MAX_TOKENS_DEFAULT
 from backend.utils.logger import get_logger
 
@@ -159,6 +160,51 @@ async def _require_profile(user_id: str) -> HealthProfile:
     return profile
 
 
+async def _load_profile_or_default(user_id: str) -> HealthProfile:
+    """
+    Load a HealthProfile, falling back to an empty profile on failure.
+
+    Used by chat endpoints where a missing profile should not block the response.
+
+    Args:
+        user_id: Supabase auth user ID.
+
+    Returns:
+        The user's HealthProfile, or a blank default if unavailable.
+    """
+    try:
+        profile = await get_profile(user_id)
+    except Exception as exc:
+        log.error("profile_load_failed", user_id=user_id, error=str(exc))
+        profile = None
+    return profile or HealthProfile(user_id=user_id, display_name="")
+
+
+def _serialize_citations(citations: list) -> list[dict]:
+    """
+    Serialize Citation objects to dicts for JSON responses.
+
+    Args:
+        citations: List of Citation dataclass instances.
+
+    Returns:
+        List of plain dicts safe for JSON serialization.
+    """
+    return [
+        {
+            "pmid": c.pmid,
+            "title": c.title,
+            "journal": c.journal,
+            "year": c.year,
+            "authors": c.authors,
+            "pubmed_url": c.pubmed_url,
+            "display_summary": c.display_summary,
+            "source": c.source,
+        }
+        for c in citations
+    ]
+
+
 def _build_attachment_prompt(user_text: str, attachments: list[AttachmentPayload]) -> str:
     """
     Build a directive text prompt that connects attached files to the user's question.
@@ -257,14 +303,7 @@ async def chat(
         )
 
     # Step 2: Load health profile
-    try:
-        profile = await get_profile(request.user_id)
-    except Exception as exc:
-        log.error("chat_profile_load_failed", user_id=request.user_id, error=str(exc))
-        profile = None
-
-    if profile is None:
-        profile = HealthProfile(user_id=request.user_id, display_name="")
+    profile = await _load_profile_or_default(request.user_id)
 
     # Step 3: Classify domain
     health_domain = classify_health_domain(request.get_text())
@@ -318,24 +357,14 @@ async def chat(
     except anthropic.AuthenticationError as exc:
         log.error("chat_anthropic_auth_failed", user_id=request.user_id, error=str(exc))
         raise HTTPException(status_code=500, detail="AI service authentication error — check ANTHROPIC_API_KEY")
-    except (anthropic.APIError, Exception) as exc:
-        log.error("chat_anthropic_failed", user_id=request.user_id, error=str(exc))
+    except anthropic.APIError as exc:
+        log.error("chat_anthropic_api_failed", user_id=request.user_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="AI service temporarily unavailable")
+    except Exception as exc:
+        log.error("chat_unexpected_error", user_id=request.user_id, error=str(exc))
         raise HTTPException(status_code=500, detail="Please try again momentarily")
 
-    # Build citation dicts for response
-    citation_dicts = [
-        {
-            "pmid": c.pmid,
-            "title": c.title,
-            "journal": c.journal,
-            "year": c.year,
-            "authors": c.authors,
-            "pubmed_url": c.pubmed_url,
-            "display_summary": c.display_summary,
-            "source": c.source,
-        }
-        for c in citations
-    ]
+    citation_dicts = _serialize_citations(citations)
 
     # Step 8: Background profile update
     full_conversation = list(request.conversation_history) + [
@@ -349,13 +378,11 @@ async def chat(
     )
 
     # Determine triage level for UI
-    from backend.features.triage import classify_triage_level
     triage = classify_triage_level(request.get_text())
 
     log.info("chat_complete", user_id=request.user_id, domain=health_domain,
              citations=len(citations), triage=triage.value)
 
-    import uuid as _uuid
     return ChatResponse(
         conversation_id=request.conversation_id or str(_uuid.uuid4()),
         answer=answer,
@@ -386,8 +413,6 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
     Returns:
         StreamingResponse with Content-Type text/event-stream.
     """
-    import uuid as _uuid
-
     # Step 1: Emergency gate — deterministic, no LLM
     emergency_response = check_emergency(request.get_text())
     if emergency_response:
@@ -405,13 +430,7 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
         )
 
     # Step 2: Load health profile
-    try:
-        profile = await get_profile(request.user_id)
-    except Exception as exc:
-        log.error("chat_stream_profile_failed", user_id=request.user_id, error=str(exc))
-        profile = None
-    if profile is None:
-        profile = HealthProfile(user_id=request.user_id, display_name="")
+    profile = await _load_profile_or_default(request.user_id)
 
     # Step 3: Classify domain
     health_domain = classify_health_domain(request.get_text())
@@ -427,23 +446,10 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
     messages_payload.append({"role": "user", "content": request.get_text()})
 
     # Step 7: Triage level (deterministic — no LLM)
-    from backend.features.triage import classify_triage_level
     triage = classify_triage_level(request.get_text())
     conversation_id = request.conversation_id or str(_uuid.uuid4())
 
-    citation_dicts = [
-        {
-            "pmid": c.pmid,
-            "title": c.title,
-            "journal": c.journal,
-            "year": c.year,
-            "authors": c.authors,
-            "pubmed_url": c.pubmed_url,
-            "display_summary": c.display_summary,
-            "source": c.source,
-        }
-        for c in citations
-    ]
+    citation_dicts = _serialize_citations(citations)
     meta = {
         "citations": citation_dicts,
         "triage_level": triage.value,
@@ -529,30 +535,33 @@ async def create_health_profile(profile: HealthProfile) -> HealthProfile:
 
 
 @app.put("/api/profile/{user_id}", response_model=HealthProfile)
-async def update_health_profile(user_id: str, profile: HealthProfile) -> HealthProfile:
+async def update_health_profile(user_id: str, update: ProfileUpdate) -> HealthProfile:
     """
     Create or update a user's health profile.
 
+    Accepts a ProfileUpdate (editable fields only — no labs, wearables, or
+    computed fields) to avoid Pydantic validation errors on round-trip.
+
     Args:
-        user_id: Supabase auth user ID (must match profile.user_id)
-        profile: Updated HealthProfile data
+        user_id: Supabase auth user ID (must match update.user_id)
+        update: Editable profile fields
 
     Returns:
-        Saved HealthProfile.
+        Full HealthProfile including labs and wearables.
 
     Raises:
         HTTPException: 400 if user_id mismatch, 500 on DB error.
     """
-    if profile.user_id != user_id:
+    if update.user_id != user_id:
         raise HTTPException(status_code=400, detail="user_id mismatch")
     try:
-        await upsert_profile(profile)
+        await upsert_profile(update.to_health_profile())
         # Re-fetch so the response includes recent_labs from the lab_results table.
         full = await get_profile(user_id)
     except Exception as exc:
         log.error("profile_update_failed", user_id=user_id, error=str(exc))
-        raise HTTPException(status_code=500, detail=f"Failed to update profile: {exc}")
-    return full or profile
+        raise HTTPException(status_code=500, detail="Failed to update profile")
+    return full or update.to_health_profile()
 
 
 @app.post("/api/labs/scan")
@@ -783,6 +792,9 @@ async def visit_prep(user_id: str) -> dict:
         return summary.model_dump()
     except anthropic.APIError as exc:
         log.error("visit_prep_api_failed", user_id=user_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Visit prep generation temporarily unavailable")
+    except Exception as exc:
+        log.error("visit_prep_failed", user_id=user_id, error=str(exc))
         raise HTTPException(status_code=500, detail="Visit prep generation failed")
 
 
@@ -801,7 +813,11 @@ async def drug_interaction_check(request: DrugCheckRequest) -> dict:
         HTTPException: 404 if profile not found, 500 on DB error.
     """
     profile = await _require_profile(request.user_id)
-    warnings = check_drug_interactions(profile.current_medications, request.new_drug)
+    try:
+        warnings = check_drug_interactions(profile.current_medications, request.new_drug)
+    except Exception as exc:
+        log.error("drug_check_failed", user_id=request.user_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Drug interaction check failed")
     return {"warnings": warnings, "new_drug": request.new_drug}
 
 
@@ -912,8 +928,8 @@ async def health_rag_query(request: HealthRAGRequest) -> HealthRAGResponse:
         profile = await get_profile(request.user_id)
         if profile:
             parts: list[str] = []
-            if profile.conditions:
-                parts.append(f"conditions: {', '.join(profile.conditions[:5])}")
+            if profile.primary_conditions:
+                parts.append(f"conditions: {', '.join(profile.primary_conditions[:5])}")
             if profile.current_medications:
                 med_names = [m.name for m in profile.current_medications[:5]]
                 parts.append(f"medications: {', '.join(med_names)}")
