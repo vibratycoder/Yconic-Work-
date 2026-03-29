@@ -66,8 +66,8 @@ def ensure_auth_user() -> str:
                     uid = u["id"]
                     print(f"  Auth user already exists: {uid}")
                     return uid
-    except urllib.error.HTTPError:
-        pass
+    except urllib.error.HTTPError as err:
+        print(f"  Auth user lookup failed ({err.code}), creating new user")
 
     # Create new auth user with the fixed UUID
     payload = _json.dumps({

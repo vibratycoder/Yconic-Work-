@@ -228,8 +228,8 @@ def _scholar_search_sync(query: str, max_results: int = 3) -> list[dict]:
                 pub = next(gen)
                 try:
                     pub = scholarly.fill(pub)
-                except Exception:
-                    pass
+                except Exception as fill_err:
+                    log.debug("scholarly_fill_failed", error=str(fill_err))
                 bib = pub.get("bib", {})
                 title = (bib.get("title") or "").strip()
                 if not title:
