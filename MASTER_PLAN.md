@@ -76,8 +76,8 @@ GET http://localhost:8010/health  →  {"status": "ok", "version": "0.1.0"}
 
 | Item | Gap Type |
 |---|---|
-| Production deployment | Config only — Vercel + Railway ready, ENV vars needed |
-| Supabase schema in production | Ops only — `schema.sql` written, migration not run |
+| Production deployment | ✅ Deployed — Render (backend) + Vercel (web) |
+| Supabase schema in production | ✅ Live — schema migrated, RLS enabled |
 | HIPAA BAA with Supabase + Anthropic | Legal — available on Enterprise tier |
 
 ---
@@ -113,7 +113,7 @@ GET http://localhost:8010/health  →  {"status": "ok", "version": "0.1.0"}
 | AI — background | Claude Haiku 4.5 (10× cheaper; background tasks only) |
 | Evidence primary | Semantic Scholar (200M+ papers) + OpenAlex (250M+ papers) |
 | Evidence supplementary | PubMed · ClinicalTrials.gov · FDA openFDA · NLM RxNorm · MedlinePlus |
-| Web | Next.js 14, TypeScript strict, Tailwind CSS |
+| Web | Next.js 16, TypeScript strict, Tailwind CSS |
 | Mobile | Expo SDK 51, React Native, TypeScript strict |
 | Wearables | react-native-health (HealthKit) |
 | Database | Supabase — PostgreSQL + RLS + Auth + Storage |
@@ -447,7 +447,7 @@ Searches literature → extracts ranges with Claude → writes to `scraped_range
 **What exists today:**
 
 - ✅ FastAPI backend · 9 routes · 8 external API integrations · deterministic safety gate
-- ✅ Next.js 14 web app · auth · onboarding · chat · bloodwork · profile editing
+- ✅ Next.js 16 web app · auth · onboarding · chat · bloodwork · profile editing
 - ✅ Expo React Native mobile · chat · labs · profile · HealthKit sync
 - ✅ Multi-source RAG · 6 concurrent queries · OCEBM composite reranking
 - ✅ 80+ personalised lab reference ranges · scrape agent · pattern detector
