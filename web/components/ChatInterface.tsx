@@ -8,7 +8,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AttachmentFile, AttachmentPayload, ChatMessage, HealthProfile } from '../lib/types';
-import { sendChatMessage, fetchHealthProfile } from '../lib/api';
+import { streamChatMessage, fetchHealthProfile } from '../lib/api';
 import { signOut } from '../lib/supabase';
 import { CitationCard } from './CitationCard';
 import { HealthProfileSidebar } from './HealthProfileSidebar';
@@ -169,25 +169,42 @@ export function ChatInterface({ userId }: ChatInterfaceProps): React.ReactElemen
     setAttachments([]);
     setLoading(true);
 
+    // Placeholder message — fills in token-by-token via SSE
+    const assistantId = (Date.now() + 1).toString();
+    setMessages((prev) => [...prev, {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      created_at: new Date(),
+    }]);
+
     try {
-      const response = await sendChatMessage(userId, text, conversationId, payloads);
-      setConversationId(response.conversation_id);
-      setMessages((prev) => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response.answer,
-        citations: response.citations,
-        triage_level: response.triage_level,
-        created_at: new Date(),
-      }]);
-      void loadProfile();
+      await streamChatMessage(
+        userId,
+        text,
+        conversationId,
+        payloads,
+        (token) => {
+          setMessages((prev) => prev.map((m) =>
+            m.id === assistantId ? { ...m, content: m.content + token } : m,
+          ));
+        },
+        (meta) => {
+          setConversationId(meta.conversation_id);
+          setMessages((prev) => prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, citations: meta.citations, triage_level: meta.triage_level as ChatMessage['triage_level'] }
+              : m,
+          ));
+          void loadProfile();
+        },
+      );
     } catch (err) {
-      setMessages((prev) => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: err instanceof Error ? err.message : 'Unable to reach Sana Health. Please ensure the backend is running.',
-        created_at: new Date(),
-      }]);
+      setMessages((prev) => prev.map((m) =>
+        m.id === assistantId
+          ? { ...m, content: err instanceof Error ? err.message : 'Unable to reach Sana Health. Please ensure the backend is running.' }
+          : m,
+      ));
     } finally {
       setLoading(false);
     }

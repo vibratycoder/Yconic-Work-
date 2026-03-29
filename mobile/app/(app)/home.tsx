@@ -94,6 +94,10 @@ export default function HomeScreen(): React.ReactElement {
             <Text style={styles.askButtonText}>Ask Sana Health a question</Text>
             <Text style={styles.askButtonSub}>Evidence-based answers using your health data</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.visitButton} onPress={() => router.push('/(app)/visit-prep')}>
+            <Text style={styles.visitButtonText}>Prepare for Doctor Visit</Text>
+            <Text style={styles.visitButtonSub}>AI-generated summary of your meds, labs &amp; questions</Text>
+          </TouchableOpacity>
         </View>
 
         {abnormalLabs.length > 0 && (
@@ -134,6 +138,12 @@ const styles = StyleSheet.create({
   },
   askButtonText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
   askButtonSub: { fontSize: 13, color: 'rgba(255,255,255,0.8)' },
+  visitButton: {
+    backgroundColor: 'rgba(56,189,248,0.08)', borderRadius: 16, padding: 16, marginTop: 10,
+    borderWidth: 1, borderColor: 'rgba(56,189,248,0.2)',
+  },
+  visitButtonText: { fontSize: 16, fontWeight: '700', color: '#38bdf8', marginBottom: 3 },
+  visitButtonSub: { fontSize: 12, color: 'rgba(255,255,255,0.5)' },
   section: { paddingHorizontal: 16, marginBottom: 24 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 12 },
   seeAll: { fontSize: 14, color: '#0EA5E9', fontWeight: '600', textAlign: 'center', paddingVertical: 8 },

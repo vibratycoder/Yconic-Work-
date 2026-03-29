@@ -128,6 +128,103 @@ export async function analyzeDocument(
   return response.json() as Promise<DocumentAnalysisResult>;
 }
 
+/** Metadata emitted in the final SSE event from /api/chat/stream. */
+export interface StreamMeta {
+  citations: import('./types').Citation[];
+  triage_level: import('./types').TriageLevel;
+  health_domain: string;
+  conversation_id: string;
+  is_emergency: boolean;
+}
+
+/**
+ * Stream a chat message using the SSE /api/chat/stream endpoint.
+ *
+ * Calls onToken for each partial text token and onMeta once with the final
+ * metadata (citations, triage level, conversation ID).
+ *
+ * @param userId - Authenticated Supabase user ID
+ * @param question - User's health question
+ * @param conversationId - Optional existing conversation ID
+ * @param onToken - Callback invoked for each streamed token
+ * @param onMeta - Callback invoked once with final metadata
+ */
+export async function streamChatMessage(
+  userId: string,
+  question: string,
+  conversationId: string | undefined,
+  onToken: (token: string) => void,
+  onMeta: (meta: StreamMeta) => void,
+): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/chat/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: userId,
+      question,
+      conversation_id: conversationId ?? null,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Chat stream failed: ${response.status} ${error}`);
+  }
+
+  if (!response.body) {
+    throw new Error('Streaming not supported in this environment');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const payload = line.slice(6).trim();
+      if (payload === '[DONE]') return;
+      try {
+        const event = JSON.parse(payload) as { token?: string; meta?: StreamMeta };
+        if (event.token !== undefined) onToken(event.token);
+        else if (event.meta !== undefined) onMeta(event.meta);
+      } catch {
+        // ignore malformed SSE line
+      }
+    }
+  }
+}
+
+/**
+ * Check a drug for interactions with the user's current medications.
+ *
+ * @param userId - Authenticated Supabase user ID
+ * @param newDrug - Name of the drug to check
+ * @returns Object with warnings list and echoed drug name
+ */
+export async function checkDrugInteractions(
+  userId: string,
+  newDrug: string,
+): Promise<{ warnings: string[]; new_drug: string }> {
+  const response = await fetch(`${API_BASE}/api/drug-check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, new_drug: newDrug }),
+  });
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Drug check failed: ${response.status} ${error}`);
+  }
+  return response.json() as Promise<{ warnings: string[]; new_drug: string }>;
+}
+
 /**
  * Generate a doctor visit preparation summary.
  *

@@ -42,6 +42,79 @@ export async function sendChatMessage(
   return res.json() as Promise<ChatResponse>;
 }
 
+/** Metadata in the final SSE event from /api/chat/stream. */
+export interface StreamMeta {
+  citations: import('./types').Citation[];
+  triage_level: string | null;
+  health_domain: string;
+  conversation_id: string;
+  is_emergency: boolean;
+}
+
+/**
+ * Stream a chat message via the SSE /api/chat/stream endpoint.
+ *
+ * @param userId - User ID for profile lookup
+ * @param question - Health question text
+ * @param conversationId - Optional existing conversation ID
+ * @param attachments - Optional base64-encoded image/PDF attachments
+ * @param onToken - Callback invoked with each streamed token
+ * @param onMeta - Callback invoked once with final metadata
+ */
+export async function streamChatMessage(
+  userId: string,
+  question: string,
+  conversationId: string | undefined,
+  attachments: import('./types').AttachmentPayload[] | undefined,
+  onToken: (token: string) => void,
+  onMeta: (meta: StreamMeta) => void,
+): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/chat/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userId,
+        question,
+        conversation_id: conversationId ?? null,
+        attachments: attachments ?? [],
+      }),
+    });
+  } catch {
+    throw new Error('Unable to reach Sana Health backend. Please ensure the server is running.');
+  }
+  if (!res.ok) {
+    const detail = await res.json().then((d: { detail?: string }) => d.detail).catch(() => null);
+    throw new Error(detail ?? `Chat stream failed: ${res.status}`);
+  }
+  if (!res.body) throw new Error('Streaming not supported');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const payload = line.slice(6).trim();
+      if (payload === '[DONE]') return;
+      try {
+        const event = JSON.parse(payload) as { token?: string; meta?: StreamMeta };
+        if (event.token !== undefined) onToken(event.token);
+        else if (event.meta !== undefined) onMeta(event.meta);
+      } catch { /* ignore */ }
+    }
+  }
+}
+
 /**
  * Update (upsert) the user's health profile via PUT.
  *

@@ -1,10 +1,12 @@
 """Pulse FastAPI backend — all routes."""
 from __future__ import annotations
+import json
 import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 import anthropic
 from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
@@ -361,6 +363,120 @@ async def chat(
         health_domain=health_domain,
         is_emergency=False,
         triage_level=triage.value,
+    )
+
+
+@app.post("/api/chat/stream")
+async def chat_stream(request: ChatRequest) -> StreamingResponse:
+    """
+    Streaming SSE chat endpoint — emits tokens as they arrive from Claude.
+
+    Performs the same pipeline as /api/chat (emergency gate, profile load,
+    citation fetch, system prompt build) then streams the Claude response
+    token-by-token using Server-Sent Events.
+
+    Event types emitted:
+    - ``data: {"token": "..."}``      — partial text token from Claude.
+    - ``data: {"meta": {...}}``        — final metadata (citations, triage, etc.).
+    - ``data: [DONE]``                 — signals end of stream.
+
+    Args:
+        request: ChatRequest with user_id, message, and conversation history.
+
+    Returns:
+        StreamingResponse with Content-Type text/event-stream.
+    """
+    import uuid as _uuid
+
+    # Step 1: Emergency gate — deterministic, no LLM
+    emergency_response = check_emergency(request.get_text())
+    if emergency_response:
+        log.info("chat_stream_emergency", user_id=request.user_id)
+
+        async def _emergency_gen() -> AsyncGenerator[str, None]:
+            yield f"data: {json.dumps({'token': emergency_response})}\n\n"
+            yield f"data: {json.dumps({'meta': {'triage_level': 'emergency', 'is_emergency': True, 'citations': [], 'conversation_id': str(_uuid.uuid4()), 'health_domain': 'emergency'}})}\n\n"
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(
+            _emergency_gen(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    # Step 2: Load health profile
+    try:
+        profile = await get_profile(request.user_id)
+    except Exception as exc:
+        log.error("chat_stream_profile_failed", user_id=request.user_id, error=str(exc))
+        profile = None
+    if profile is None:
+        profile = HealthProfile(user_id=request.user_id, display_name="")
+
+    # Step 3: Classify domain
+    health_domain = classify_health_domain(request.get_text())
+
+    # Step 4: Fetch citations
+    citations = await get_citations_for_question(request.get_text(), health_domain)
+
+    # Step 5: Build system prompt
+    system_prompt = build_health_system_prompt(profile, citations, len(request.attachments))
+
+    # Step 6: Build messages
+    messages_payload: list[dict] = list(request.conversation_history)
+    messages_payload.append({"role": "user", "content": request.get_text()})
+
+    # Step 7: Triage level (deterministic — no LLM)
+    from backend.features.triage import classify_triage_level
+    triage = classify_triage_level(request.get_text())
+    conversation_id = request.conversation_id or str(_uuid.uuid4())
+
+    citation_dicts = [
+        {
+            "pmid": c.pmid,
+            "title": c.title,
+            "journal": c.journal,
+            "year": c.year,
+            "authors": c.authors,
+            "pubmed_url": c.pubmed_url,
+            "display_summary": c.display_summary,
+            "source": c.source,
+        }
+        for c in citations
+    ]
+    meta = {
+        "citations": citation_dicts,
+        "triage_level": triage.value,
+        "health_domain": health_domain,
+        "conversation_id": conversation_id,
+        "is_emergency": False,
+    }
+
+    async def _generate() -> AsyncGenerator[str, None]:
+        try:
+            client = anthropic.AsyncAnthropic()
+            async with client.messages.stream(
+                model=CLAUDE_SONNET,
+                max_tokens=MAX_TOKENS_DEFAULT,
+                system=system_prompt,
+                messages=messages_payload,
+            ) as stream:
+                async for text in stream.text_stream:
+                    yield f"data: {json.dumps({'token': text})}\n\n"
+        except anthropic.AuthenticationError as exc:
+            log.error("chat_stream_auth_failed", user_id=request.user_id, error=str(exc))
+            yield f"data: {json.dumps({'token': 'AI service authentication error.'})}\n\n"
+        except Exception as exc:
+            log.error("chat_stream_failed", user_id=request.user_id, error=str(exc))
+            yield f"data: {json.dumps({'token': 'An error occurred. Please try again.'})}\n\n"
+        yield f"data: {json.dumps({'meta': meta})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    log.info("chat_stream_start", user_id=request.user_id, domain=health_domain)
+    return StreamingResponse(
+        _generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 

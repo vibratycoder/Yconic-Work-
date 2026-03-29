@@ -26,7 +26,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { HealthProfile, Medication } from '../../lib/types';
-import { fetchHealthProfile, updateHealthProfile } from '../../lib/api';
+import { fetchHealthProfile, updateHealthProfile, checkDrugInteractions } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -271,6 +271,10 @@ export default function ProfileScreen(): React.ReactElement {
   const [newMedDose,   setNewMedDose]   = useState('');
   const [newMedFreq,   setNewMedFreq]   = useState('');
 
+  // ── Drug check state ──────────────────────────────────────────────────
+  const [drugCheckInput, setDrugCheckInput] = useState('');
+  const [drugChecking, setDrugChecking] = useState(false);
+
   // ── Lifestyle / health_facts edit mirror ──────────────────────────────
   const [selectedFacts, setSelectedFacts] = useState<string[]>([]);
 
@@ -380,6 +384,34 @@ export default function ProfileScreen(): React.ReactElement {
     allergies,
     selectedFacts,
   ]);
+
+  // ── Drug check handler ─────────────────────────────────────────────────
+
+  /**
+   * Check the entered drug name for interactions with the user's current
+   * medications by calling POST /api/drug-check.  Results are shown in an Alert.
+   */
+  const handleDrugCheck = useCallback(async (): Promise<void> => {
+    const drug = drugCheckInput.trim();
+    if (!drug || !userId) return;
+    setDrugChecking(true);
+    try {
+      const result = await checkDrugInteractions(userId, drug);
+      const body =
+        result.warnings.length === 0
+          ? `No known interactions found between ${drug} and your current medications.`
+          : result.warnings.join('\n\n');
+      Alert.alert(
+        `Interaction Check: ${drug}`,
+        body,
+        [{ text: 'OK' }],
+      );
+    } catch (err: unknown) {
+      Alert.alert('Check failed', err instanceof Error ? err.message : 'Please try again.');
+    } finally {
+      setDrugChecking(false);
+    }
+  }, [drugCheckInput, userId]);
 
   // ── Medication helpers ─────────────────────────────────────────────────
 
@@ -664,6 +696,34 @@ export default function ProfileScreen(): React.ReactElement {
             )}
           </View>
         ))}
+
+        {!editing && (
+          <View style={styles.drugCheckBox}>
+            <Text style={styles.sectionHeader}>CHECK DRUG INTERACTION</Text>
+            <View style={styles.drugCheckRow}>
+              <TextInput
+                style={[styles.editInput, styles.drugCheckInput]}
+                value={drugCheckInput}
+                onChangeText={setDrugCheckInput}
+                placeholder="Enter drug name (e.g. Ibuprofen)"
+                placeholderTextColor="rgba(255,255,255,0.25)"
+                returnKeyType="search"
+                onSubmitEditing={(): void => { void handleDrugCheck(); }}
+              />
+              <TouchableOpacity
+                style={[styles.drugCheckButton, (!drugCheckInput.trim() || drugChecking) && styles.actionButtonDisabled]}
+                onPress={(): void => { void handleDrugCheck(); }}
+                disabled={!drugCheckInput.trim() || drugChecking}
+              >
+                {drugChecking ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.drugCheckButtonText}>Check</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {editing && (
           <View style={styles.addMedBox}>
@@ -1248,6 +1308,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ff453a',
     paddingLeft: 12,
+  },
+  drugCheckBox: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+  },
+  drugCheckRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  drugCheckInput: {
+    flex: 1,
+    marginTop: 0,
+  },
+  drugCheckButton: {
+    backgroundColor: 'rgba(14,165,233,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(14,165,233,0.3)',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 64,
+  },
+  drugCheckButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0EA5E9',
   },
   addMedBox: {
     marginTop: 16,

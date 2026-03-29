@@ -64,6 +64,15 @@ export default function AppLayout(): React.ReactElement {
         }}
       />
       <Tabs.Screen
+        name="tracker"
+        options={{
+          title: 'Tracker',
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+            <Ionicons name="heart-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="labs"
         options={{
           title: 'Labs',
@@ -80,6 +89,11 @@ export default function AppLayout(): React.ReactElement {
             <Ionicons name="person-outline" color={color} size={size} />
           ),
         }}
+      />
+      {/* visit-prep is a full-screen modal pushed from home — hide from tab bar */}
+      <Tabs.Screen
+        name="visit-prep"
+        options={{ href: null }}
       />
     </Tabs>
   );

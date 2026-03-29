@@ -41,7 +41,7 @@ import { ChatBubble } from '../../components/ChatBubble';
 import { CitationSheet } from '../../components/CitationSheet';
 import { TriageAlert } from '../../components/TriageAlert';
 import { ChatMessage, Citation } from '../../lib/types';
-import { sendChatMessage } from '../../lib/api';
+import { streamChatMessage } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 
 /** Maximum number of image attachments allowed per message. */
@@ -294,20 +294,19 @@ export default function ChatScreen(): React.ReactElement {
   // ── Send ────────────────────────────────────────────────────────────────────
 
   /**
-   * Build the user message (optionally appending attachment context lines),
-   * optimistically add it to the list, call the API, then append the
-   * assistant reply. Clears attachments after dispatch.
+   * Build the user message, optimistically add it to the list alongside an
+   * empty assistant placeholder, then stream tokens from /api/chat/stream into
+   * that placeholder. Citations and triage level are applied when the final
+   * metadata event arrives.
    *
    * Attachment filenames are injected as "[Attached image: filename]" context
-   * lines appended to the question text, since the mobile API endpoint does
-   * not yet accept multipart payloads.
+   * lines appended to the question text.
    */
   const handleSend = useCallback(async (): Promise<void> => {
     const text = inputText.trim();
     const hasAttachments = attachments.length > 0;
     if ((!text && !hasAttachments) || loading) return;
 
-    // Build the question string — append image context lines for the backend
     const attachmentContext = attachments
       .map((a) => `[Attached image: ${a.name}]`)
       .join('\n');
@@ -320,46 +319,72 @@ export default function ChatScreen(): React.ReactElement {
       created_at: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    // Placeholder assistant message — content fills in as tokens arrive
+    const assistantId = (Date.now() + 1).toString();
+    const placeholder: ChatMessage = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      created_at: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage, placeholder]);
     setInputText('');
     setAttachments([]);
     setLoading(true);
     scrollToEnd();
 
     try {
-      const response = await sendChatMessage(userId ?? '', question, conversationId);
-
-      if (response.conversation_id) {
-        setConversationId(response.conversation_id);
-      }
-
-      if (response.triage_level === 'emergency') {
-        setEmergencyMessage(response.answer);
-      }
-
-      const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response.answer,
-        citations: response.citations,
-        triage_level: response.triage_level,
-        created_at: new Date(),
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-      scrollToEnd();
+      await streamChatMessage(
+        userId ?? '',
+        question,
+        conversationId,
+        // onToken — append each partial token to the placeholder
+        (token) => {
+          setMessages((prev) => {
+            const msgs = [...prev];
+            const idx = msgs.findIndex((m) => m.id === assistantId);
+            if (idx === -1) return prev;
+            msgs[idx] = { ...msgs[idx], content: msgs[idx].content + token };
+            return msgs;
+          });
+          scrollToEnd();
+        },
+        // onMeta — apply citations, triage, and conversation ID
+        (meta) => {
+          if (meta.conversation_id) setConversationId(meta.conversation_id);
+          if (meta.triage_level === 'emergency') {
+            setMessages((prev) => {
+              const m = prev.find((x) => x.id === assistantId);
+              if (m) setEmergencyMessage(m.content);
+              return prev;
+            });
+          }
+          setMessages((prev) => {
+            const msgs = [...prev];
+            const idx = msgs.findIndex((m) => m.id === assistantId);
+            if (idx === -1) return prev;
+            msgs[idx] = {
+              ...msgs[idx],
+              citations: meta.citations as Citation[],
+              triage_level: meta.triage_level,
+            };
+            return msgs;
+          });
+        },
+      );
     } catch (error: unknown) {
       const errorText =
         error instanceof Error
           ? error.message
           : 'Unable to reach Sana Health right now. Please try again.';
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: errorText,
-        created_at: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages((prev) => {
+        const msgs = [...prev];
+        const idx = msgs.findIndex((m) => m.id === assistantId);
+        if (idx === -1) return prev;
+        msgs[idx] = { ...msgs[idx], content: errorText };
+        return msgs;
+      });
       scrollToEnd();
     } finally {
       setLoading(false);
@@ -369,6 +394,10 @@ export default function ChatScreen(): React.ReactElement {
   // ── Derived state ───────────────────────────────────────────────────────────
 
   const canSend = (inputText.trim().length > 0 || attachments.length > 0) && !loading;
+
+  // Show loading dots only while waiting for the first token (placeholder is still empty)
+  const lastMsg = messages[messages.length - 1];
+  const showLoadingDots = loading && (!lastMsg || lastMsg.role === 'user' || (lastMsg.role === 'assistant' && lastMsg.content === ''));
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -418,7 +447,7 @@ export default function ChatScreen(): React.ReactElement {
           )}
           contentContainerStyle={styles.messageList}
           ListEmptyComponent={<EmptyState />}
-          ListFooterComponent={loading ? <LoadingDots /> : null}
+          ListFooterComponent={showLoadingDots ? <LoadingDots /> : null}
           onContentSizeChange={scrollToEnd}
         />
 
