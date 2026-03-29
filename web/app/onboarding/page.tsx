@@ -122,13 +122,65 @@ function toWeightKg(lbs: string): number | null {
   return Math.round(v * 0.4536 * 10) / 10;
 }
 
+/**
+ * Map onboarding questionnaire answers to exact FACT_CATEGORIES fact strings
+ * so they are picked up by the categorised sidebar grouping.
+ */
 function buildHealthFacts(data: OnboardingData): string[] {
   const facts: string[] = [];
-  if (data.exercise_frequency) facts.push(`Exercise: ${data.exercise_frequency}`);
-  if (data.avg_sleep_hours) facts.push(`Typical sleep: ${data.avg_sleep_hours}`);
-  if (data.smoking_status) facts.push(`Smoking: ${data.smoking_status}`);
-  if (data.alcohol_use) facts.push(`Alcohol use: ${data.alcohol_use}`);
-  if (data.health_goals.length > 0) facts.push(`Health goals: ${data.health_goals.join(', ')}`);
+
+  // Exercise
+  const exerciseMap: Record<string, string> = {
+    'Sedentary (little to no exercise)': 'Mostly sedentary lifestyle',
+    'Light (1–2 days/week)': 'Walks daily',
+    'Moderate (3–4 days/week)': 'Exercises regularly (3+ times/week)',
+    'Active (5+ days/week)': 'Exercises regularly (3+ times/week)',
+    'Very active (athlete / physical job)': 'Very active (athlete / physical job)',
+  };
+  if (data.exercise_frequency && exerciseMap[data.exercise_frequency]) {
+    facts.push(exerciseMap[data.exercise_frequency]);
+  }
+
+  // Sleep
+  const sleepMap: Record<string, string> = {
+    'Less than 5 hours': 'Gets less than 6 hours of sleep per night',
+    '5–6 hours': 'Gets less than 6 hours of sleep per night',
+    '6–7 hours': 'Gets less than 6 hours of sleep per night',
+    '7–8 hours': 'Gets 7–9 hours of sleep per night',
+    '8+ hours': 'Gets 8+ hours of sleep per night',
+  };
+  if (data.avg_sleep_hours && sleepMap[data.avg_sleep_hours]) {
+    facts.push(sleepMap[data.avg_sleep_hours]);
+  }
+
+  // Smoking
+  const smokingMap: Record<string, string> = {
+    'Never smoked': 'Non-smoker',
+    'Former smoker (quit)': 'Former smoker (quit)',
+    'Current smoker': 'Current smoker',
+    'Vape / e-cigarette': 'Uses vape / e-cigarette',
+  };
+  if (data.smoking_status && smokingMap[data.smoking_status]) {
+    facts.push(smokingMap[data.smoking_status]);
+  }
+
+  // Alcohol
+  const alcoholMap: Record<string, string> = {
+    'None': 'Does not drink alcohol',
+    'Occasionally (1–2x/month)': 'Drinks alcohol occasionally',
+    'Socially (1–2x/week)': 'Drinks alcohol occasionally',
+    'Regularly (3–5x/week)': 'Drinks alcohol regularly (3–5×/week)',
+    'Daily': 'Drinks alcohol regularly (3–5×/week)',
+  };
+  if (data.alcohol_use && alcoholMap[data.alcohol_use]) {
+    facts.push(alcoholMap[data.alcohol_use]);
+  }
+
+  // Health goals stay as a free-form learned fact
+  if (data.health_goals.length > 0) {
+    facts.push(`Health goals: ${data.health_goals.join(', ')}`);
+  }
+
   return facts;
 }
 

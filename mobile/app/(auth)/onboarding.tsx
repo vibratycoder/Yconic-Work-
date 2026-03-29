@@ -42,6 +42,9 @@ export default function OnboardingScreen(): React.ReactElement {
   const [displayName, setDisplayName] = useState('');
   const [age, setAge] = useState('');
   const [sex, setSex] = useState('');
+  const [heightFt, setHeightFt] = useState('');
+  const [heightIn, setHeightIn] = useState('');
+  const [weightLbs, setWeightLbs] = useState('');
   const [conditions, setConditions] = useState('');
   const [allergies, setAllergies] = useState('');
   const [medName, setMedName] = useState('');
@@ -79,10 +82,20 @@ export default function OnboardingScreen(): React.ReactElement {
     }
     setLoading(true);
     try {
+      // Convert ft/in → cm and lbs → kg for storage
+      const hFt = parseFloat(heightFt);
+      const hIn = parseFloat(heightIn || '0');
+      const heightCm = !isNaN(hFt) ? Math.round((hFt * 30.48) + (hIn * 2.54)) : undefined;
+      const wKg = !isNaN(parseFloat(weightLbs))
+        ? Math.round(parseFloat(weightLbs) * 0.4536 * 10) / 10
+        : undefined;
+
       const profile: Partial<HealthProfile> = {
         display_name: displayName.trim(),
         age: age ? parseInt(age, 10) : undefined,
         sex: sex || undefined,
+        height_cm: heightCm,
+        weight_kg: wKg,
         primary_conditions: conditions
           .split(',')
           .map((c) => c.trim())
@@ -140,6 +153,18 @@ export default function OnboardingScreen(): React.ReactElement {
                 </TouchableOpacity>
               ))}
             </View>
+            <Text style={styles.fieldLabel}>Height</Text>
+            <View style={styles.doseRow}>
+              <TextInput style={[styles.input, styles.doseInput]} value={heightFt}
+                onChangeText={setHeightFt} placeholder="ft" placeholderTextColor="#9CA3AF"
+                keyboardType="number-pad" />
+              <TextInput style={[styles.input, styles.doseInput]} value={heightIn}
+                onChangeText={setHeightIn} placeholder="in" placeholderTextColor="#9CA3AF"
+                keyboardType="number-pad" />
+            </View>
+            <Text style={styles.fieldLabel}>Weight (lbs)</Text>
+            <TextInput style={styles.input} value={weightLbs} onChangeText={setWeightLbs}
+              placeholder="e.g. 165" placeholderTextColor="#9CA3AF" keyboardType="decimal-pad" />
           </View>
         )}
 
@@ -198,6 +223,8 @@ export default function OnboardingScreen(): React.ReactElement {
             <Text style={styles.reviewText}>Name: {displayName}</Text>
             {age ? <Text style={styles.reviewText}>Age: {age}</Text> : null}
             {sex ? <Text style={styles.reviewText}>Sex: {sex}</Text> : null}
+            {heightFt ? <Text style={styles.reviewText}>Height: {heightFt}′{heightIn || '0'}″</Text> : null}
+            {weightLbs ? <Text style={styles.reviewText}>Weight: {weightLbs} lbs</Text> : null}
             {conditions ? <Text style={styles.reviewText}>Conditions: {conditions}</Text> : null}
             {allergies ? <Text style={styles.reviewText}>Allergies: {allergies}</Text> : null}
             <Text style={styles.reviewText}>Medications: {medications.length}</Text>

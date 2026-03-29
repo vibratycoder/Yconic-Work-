@@ -6,6 +6,7 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import {
+  Alert,
   View,
   Text,
   TextInput,
@@ -43,6 +44,26 @@ export default function ChatScreen(): React.ReactElement {
   const [emergencyMessage, setEmergencyMessage] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
+
+  /** Prompt user to confirm, then wipe message history and reset the conversation. */
+  const handleClearChat = useCallback((): void => {
+    if (messages.length === 0) return;
+    Alert.alert(
+      'Clear chat',
+      'Remove all messages from this conversation?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => {
+            setMessages([]);
+            setConversationId(undefined);
+          },
+        },
+      ],
+    );
+  }, [messages.length]);
 
   const scrollToEnd = useCallback((): void => {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
@@ -102,7 +123,14 @@ export default function ChatScreen(): React.ReactElement {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Ask Pulse</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Ask Pulse</Text>
+          {messages.length > 0 && (
+            <TouchableOpacity onPress={handleClearChat} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.clearButton}>Clear</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <Text style={styles.memoryIndicator}>Pulse knows your health history</Text>
       </View>
 
@@ -171,7 +199,9 @@ export default function ChatScreen(): React.ReactElement {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
   header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', backgroundColor: '#FFFFFF' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
+  clearButton: { fontSize: 14, fontWeight: '600', color: '#EF4444' },
   memoryIndicator: { fontSize: 12, color: '#0EA5E9', fontWeight: '500', marginTop: 2 },
   keyboardView: { flex: 1 },
   messageList: { paddingVertical: 16, paddingBottom: 8 },

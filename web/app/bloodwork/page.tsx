@@ -10,7 +10,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser } from '../../lib/supabase';
 import { fetchHealthProfile, analyzeDocument } from '../../lib/api';
-import type { LabResult, LabStatus, LabRating, RatedLabResult, HealthProfile } from '../../lib/types';
+import type { LabResult, LabSource, LabStatus, LabRating, RatedLabResult, HealthProfile } from '../../lib/types';
 
 /* ── Status / Rating config ─────────────────────────────────────────────── */
 
@@ -108,109 +108,116 @@ function displayValue(lab: LabResult): string {
 
 /* ── Components ─────────────────────────────────────────────────────────── */
 
-interface LabCardProps {
-  lab: LabResult;
-  rated?: RatedLabResult;
+interface LabTableProps {
+  labs: LabResult[];
+  ratedMap: Map<string, RatedLabResult>;
 }
 
-function LabCard({ lab, rated }: LabCardProps): React.ReactElement {
-  // Use personalised rating when available, fall back to original status
-  const ratingCfg = rated ? RATING_CONFIG[rated.rating] : null;
-  const cfg = ratingCfg ?? STATUS_CONFIG[lab.status];
-  const badgeLabel = rated ? rated.rating : STATUS_CONFIG[lab.status].label;
-
-  const personalizedRangeLabel =
-    rated && (rated.personalized_range_low != null || rated.personalized_range_high != null)
-      ? [
-          rated.personalized_range_low != null ? `${rated.personalized_range_low}` : '—',
-          rated.personalized_range_high != null ? `${rated.personalized_range_high}` : '—',
-        ].join(' – ') + (lab.unit ? ` ${lab.unit}` : '')
-      : null;
-
-  const deviationLabel =
-    rated && rated.deviation_pct != null && rated.deviation_pct !== 0
-      ? `${rated.deviation_pct > 0 ? '+' : ''}${rated.deviation_pct.toFixed(1)}%`
-      : null;
-
+function LabTable({ labs, ratedMap }: LabTableProps): React.ReactElement {
   return (
     <div
-      className="rounded-2xl px-5 py-4 transition-all duration-200"
-      style={{
-        background: cfg.bg,
-        border: `1px solid ${cfg.border}`,
-        boxShadow: `${cfg.glow}, 0 4px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)`,
-      }}
+      className="rounded-2xl overflow-hidden"
+      style={{ border: '1px solid rgba(56,189,248,0.15)', boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }}
     >
-      {/* Top row: name + badge */}
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <span className="text-sm font-semibold text-white leading-snug">{lab.test_name}</span>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {/* Personalised rating badge */}
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide"
+      {/* Table header */}
+      <div
+        className="grid text-xs font-semibold uppercase tracking-wider px-4 py-3"
+        style={{
+          gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr',
+          background: 'linear-gradient(135deg, rgba(3,105,161,0.3) 0%, rgba(14,165,233,0.15) 100%)',
+          borderBottom: '1px solid rgba(56,189,248,0.18)',
+          color: 'rgba(56,189,248,0.7)',
+        }}
+      >
+        <span>Test</span>
+        <span>Result</span>
+        <span>Status</span>
+        <span>Your Range</span>
+        <span>Lab Ref</span>
+        <span className="text-right">Date</span>
+      </div>
+
+      {/* Rows */}
+      {labs.map((lab, i) => {
+        const rated = ratedMap.get(lab.test_name.toLowerCase());
+        const ratingCfg = rated ? RATING_CONFIG[rated.rating] : null;
+        const cfg = ratingCfg ?? STATUS_CONFIG[lab.status];
+        const badgeLabel = rated ? rated.rating : STATUS_CONFIG[lab.status].label;
+
+        const deviationLabel =
+          rated && rated.deviation_pct != null && rated.deviation_pct !== 0
+            ? `${rated.deviation_pct > 0 ? '+' : ''}${rated.deviation_pct.toFixed(1)}%`
+            : null;
+
+        const personalizedRange =
+          rated && (rated.personalized_range_low != null || rated.personalized_range_high != null)
+            ? [
+                rated.personalized_range_low != null ? `${rated.personalized_range_low}` : '—',
+                rated.personalized_range_high != null ? `${rated.personalized_range_high}` : '—',
+              ].join(' – ') + (lab.unit ? ` ${lab.unit}` : '')
+            : '—';
+
+        return (
+          <div
+            key={lab.id ?? i}
+            className="grid items-center px-4 py-3 transition-colors duration-150"
             style={{
-              background: cfg.bg,
-              border: `1px solid ${cfg.border}`,
-              color: cfg.color,
-              boxShadow: cfg.glow !== 'none' ? `0 0 10px ${cfg.dimColor}` : 'none',
+              gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr',
+              background: i % 2 === 0
+                ? 'linear-gradient(135deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%)'
+                : 'transparent',
+              borderBottom: i < labs.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
             }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = `linear-gradient(135deg, ${cfg.bg.replace('linear-gradient(135deg,', '').slice(0, -1)}`; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = i % 2 === 0 ? 'linear-gradient(135deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%)' : 'transparent'; }}
           >
-            <span
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ backgroundColor: cfg.dot, boxShadow: `0 0 5px ${cfg.dot}` }}
-            />
-            {badgeLabel}
-          </span>
-          {/* Personalised indicator */}
-          {rated && (
-            <span
-              className="text-xs rounded-md px-1.5 py-0.5 font-medium"
-              style={{ color: 'rgba(56,189,248,0.8)', background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.15)' }}
-              title="Rated against your personalised reference range"
-            >
-              personalised
+            {/* Test name */}
+            <span className="text-sm font-medium text-white/85 truncate pr-2">{lab.test_name}</span>
+
+            {/* Result + deviation */}
+            <div className="flex flex-col">
+              <span className="text-sm font-bold" style={{ color: cfg.color }}>
+                {displayValue(lab)}
+              </span>
+              {deviationLabel && (
+                <span className="text-xs" style={{ color: cfg.dimColor }}>{deviationLabel}</span>
+              )}
+            </div>
+
+            {/* Rating badge */}
+            <div>
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide"
+                style={{
+                  background: cfg.bg,
+                  border: `1px solid ${cfg.border}`,
+                  color: cfg.color,
+                  boxShadow: cfg.glow !== 'none' ? `0 0 8px ${cfg.dimColor}` : 'none',
+                }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: cfg.dot, boxShadow: `0 0 4px ${cfg.dot}` }} />
+                {badgeLabel}
+              </span>
+            </div>
+
+            {/* Personalised range */}
+            <span className="text-xs" style={{ color: rated ? 'rgba(56,189,248,0.7)' : 'rgba(255,255,255,0.3)' }}>
+              {personalizedRange}
             </span>
-          )}
-        </div>
-      </div>
 
-      {/* Value + deviation */}
-      <div className="mb-3 flex items-end gap-2">
-        <span
-          className="text-3xl font-black tracking-tight"
-          style={{ color: cfg.color, textShadow: cfg.glow !== 'none' ? `0 0 16px ${cfg.dimColor}` : 'none' }}
-        >
-          {displayValue(lab)}
-        </span>
-        {deviationLabel && (
-          <span
-            className="text-sm font-semibold mb-0.5"
-            style={{ color: cfg.dimColor }}
-          >
-            {deviationLabel} from range
-          </span>
-        )}
-      </div>
+            {/* Lab reference range */}
+            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              {rangeLabel(lab)}
+            </span>
 
-      {/* Personalised range row */}
-      {personalizedRangeLabel && (
-        <div className="mb-2 text-xs">
-          <span className="uppercase tracking-wide" style={{ color: 'rgba(56,189,248,0.5)' }}>Your range </span>
-          <span style={{ color: 'rgba(56,189,248,0.75)' }}>{personalizedRangeLabel}</span>
-          {rated?.range_note && (
-            <span style={{ color: 'rgba(255,255,255,0.3)' }}> · {rated.range_note}</span>
-          )}
-        </div>
-      )}
-
-      {/* Lab reference range + date */}
-      <div className="flex items-center justify-between text-xs gap-2">
-        <div>
-          <span className="uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.35)' }}>Lab ref </span>
-          <span style={{ color: 'rgba(255,255,255,0.55)' }}>{rangeLabel(lab)}</span>
-        </div>
-        <span style={{ color: 'rgba(255,255,255,0.3)' }}>{formatDate(lab.date_collected)}</span>
-      </div>
+            {/* Date */}
+            <span className="text-xs text-right" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              {formatDate(lab.date_collected)}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -224,9 +231,11 @@ interface UploadPanelProps {
 
 function UploadPanel({ userId, onRatedResults }: UploadPanelProps): React.ReactElement {
   const fileRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef(0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSummary, setLastSummary] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   async function handleFile(file: File): Promise<void> {
     setError(null);
@@ -248,14 +257,62 @@ function UploadPanel({ userId, onRatedResults }: UploadPanelProps): React.ReactE
     }
   }
 
+  const handleDragEnter = useCallback((e: React.DragEvent): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    if (e.dataTransfer.types.includes('Files')) setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current === 0) setIsDragging(false);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent): void => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) void handleFile(file);
+  }, [handleFile]);
+
   return (
     <div
-      className="rounded-2xl px-6 py-5 mb-6"
+      className="relative rounded-2xl px-6 py-5 mb-6 transition-all duration-200"
       style={{
-        background: 'linear-gradient(135deg, rgba(56,189,248,0.08) 0%, rgba(14,165,233,0.04) 100%)',
-        border: '1px dashed rgba(56,189,248,0.3)',
+        background: isDragging
+          ? 'linear-gradient(135deg, rgba(56,189,248,0.14) 0%, rgba(14,165,233,0.08) 100%)'
+          : 'linear-gradient(135deg, rgba(56,189,248,0.08) 0%, rgba(14,165,233,0.04) 100%)',
+        border: isDragging ? '1.5px dashed rgba(56,189,248,0.7)' : '1px dashed rgba(56,189,248,0.3)',
+        boxShadow: isDragging ? '0 0 32px rgba(56,189,248,0.12), inset 0 0 24px rgba(56,189,248,0.04)' : 'none',
       }}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
+      {/* Drag-over overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-2xl pointer-events-none">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="16 16 12 12 8 16" />
+            <line x1="12" y1="12" x2="12" y2="21" />
+            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+          </svg>
+          <p className="text-sm font-semibold" style={{ color: '#38bdf8' }}>Drop your bloodwork report here</p>
+          <p className="text-xs" style={{ color: 'rgba(56,189,248,0.65)' }}>JPEG · PNG · WebP · PDF</p>
+        </div>
+      )}
+
       <input
         ref={fileRef}
         type="file"
@@ -267,11 +324,11 @@ function UploadPanel({ userId, onRatedResults }: UploadPanelProps): React.ReactE
           e.target.value = '';
         }}
       />
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <div className={`flex flex-col sm:flex-row items-start sm:items-center gap-4 transition-opacity duration-150 ${isDragging ? 'opacity-0' : 'opacity-100'}`}>
         <div className="flex-1">
           <p className="text-sm font-semibold text-white/80">Import bloodwork report</p>
           <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            Upload a lab results image or PDF — Pulse will detect bloodwork automatically and rate
+            Drop a file here or click upload — Pulse will detect bloodwork automatically and rate
             each value against your personalised normal ranges.
           </p>
           {lastSummary && (
@@ -343,17 +400,38 @@ export default function BloodworkPage(): React.ReactElement {
     );
   }
 
-  const labs = profile.recent_labs ?? [];
+  const profileLabs = profile.recent_labs ?? [];
 
   /**
-   * Build a lookup map from test_name → RatedLabResult for the uploaded batch.
-   * If a test appears in both the profile and the upload, the upload wins.
+   * Convert uploadedRated → LabResult shape so they can be rendered by LabTable.
+   * Uploaded results take precedence over any profile lab with the same test name.
    */
+  const uploadedAsLabs: LabResult[] = uploadedRated.map((r) => ({
+    test_name: r.test_name,
+    value: r.value,
+    value_text: r.value_text,
+    unit: r.unit,
+    reference_range_low: r.personalized_range_low,
+    reference_range_high: r.personalized_range_high,
+    status: r.original_status,
+    date_collected: r.date_collected ?? undefined,
+    lab_source: (r.lab_source as LabSource),
+  }));
+
+  const uploadedNames = new Set(uploadedRated.map((r) => r.test_name.toLowerCase()));
+
+  /** Merge: uploaded results first, then profile labs not already in the upload. */
+  const labs: LabResult[] = [
+    ...uploadedAsLabs,
+    ...profileLabs.filter((l) => !uploadedNames.has(l.test_name.toLowerCase())),
+  ];
+
+  /** Lookup map: test_name → RatedLabResult (from upload batch). */
   const ratedMap = new Map<string, RatedLabResult>(
     uploadedRated.map((r) => [r.test_name.toLowerCase(), r]),
   );
 
-  /** Count per personalised rating (prefer uploadedRated, fall back to status) */
+  /** Count per personalised rating. */
   const ratingCounts = RATING_ORDER.reduce<Record<LabRating, number>>((acc, r) => {
     acc[r] = 0;
     return acc;
@@ -526,7 +604,7 @@ export default function BloodworkPage(): React.ReactElement {
           </div>
         )}
 
-        {/* Lab results grid */}
+        {/* Lab results table */}
         {labs.length === 0 ? (
           <div
             className="rounded-2xl px-8 py-16 text-center"
@@ -565,15 +643,7 @@ export default function BloodworkPage(): React.ReactElement {
             No {activeFilter !== 'all' ? activeFilter.toLowerCase() : ''} results.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((lab, i) => (
-              <LabCard
-                key={lab.id ?? i}
-                lab={lab}
-                rated={ratedMap.get(lab.test_name.toLowerCase())}
-              />
-            ))}
-          </div>
+          <LabTable labs={filtered} ratedMap={ratedMap} />
         )}
 
         {/* Legend */}

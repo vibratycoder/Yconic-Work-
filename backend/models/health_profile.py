@@ -20,6 +20,7 @@ class LabSource(str, Enum):
     PHOTO_OCR = "photo_ocr"
     HEALTHKIT = "healthkit"
     EHR_IMPORT = "ehr_import"
+    PDF = "pdf"
 
 
 class Medication(BaseModel):

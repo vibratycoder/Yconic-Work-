@@ -70,8 +70,10 @@ export interface WearableSummary {
 export interface HealthProfile {
   user_id: string;
   display_name: string;
-  age?: number;
-  sex?: string;
+  age?: number | null;
+  sex?: string | null;
+  height_cm?: number | null;
+  weight_kg?: number | null;
   primary_conditions: string[];
   current_medications: Medication[];
   allergies: string[];

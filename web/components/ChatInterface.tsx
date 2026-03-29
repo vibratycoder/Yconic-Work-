@@ -45,9 +45,14 @@ async function fileToBase64(file: File): Promise<string> {
  */
 export function ChatInterface({ userId }: ChatInterfaceProps): React.ReactElement {
   const router = useRouter();
+  const DRAFT_KEY = `pulse_draft_${userId}`;
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [profile, setProfile] = useState<HealthProfile | null>(null);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    return localStorage.getItem(`pulse_draft_${userId}`) ?? '';
+  });
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
@@ -67,6 +72,7 @@ export function ChatInterface({ userId }: ChatInterfaceProps): React.ReactElemen
 
   useEffect(() => { void loadProfile(); }, [loadProfile]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => { localStorage.setItem(DRAFT_KEY, input); }, [DRAFT_KEY, input]);
 
   /** Add files from an input change event, validating type and size. */
   const handleFilesSelected = useCallback((files: FileList | null): void => {
@@ -145,6 +151,7 @@ export function ChatInterface({ userId }: ChatInterfaceProps): React.ReactElemen
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
+    localStorage.removeItem(DRAFT_KEY);
     setAttachError(null);
 
     // Encode images to base64
@@ -189,6 +196,14 @@ export function ChatInterface({ userId }: ChatInterfaceProps): React.ReactElemen
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend(); }
   };
+
+  /** Wipe message history and reset the conversation. */
+  const handleClearChat = useCallback((): void => {
+    if (messages.length > 0 && !window.confirm('Clear all messages from this conversation?')) return;
+    setMessages([]);
+    setConversationId(undefined);
+    localStorage.removeItem(DRAFT_KEY);
+  }, [messages.length, DRAFT_KEY]);
 
   return (
     <div className="flex h-screen" style={{ background: 'radial-gradient(ellipse at center, #071e3d, #04090f)' }}>
@@ -255,6 +270,15 @@ export function ChatInterface({ userId }: ChatInterfaceProps): React.ReactElemen
 
           {/* Actions */}
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleClearChat}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+              style={{ color: 'rgba(239,68,68,0.7)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#ef4444'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'rgba(239,68,68,0.7)'; }}
+            >
+              Clear chat
+            </button>
             <button
               onClick={() => setEditProfileOpen(true)}
               className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"

@@ -15,13 +15,14 @@ from backend.health.updater import update_profile_from_conversation
 from backend.evidence.pubmed import get_citations_for_question
 from backend.evidence.query_builder import classify_health_domain
 from backend.evidence.citation_formatter import format_citation_list
-from backend.intake.lab_ocr import extract_lab_results_from_image
+from backend.intake.lab_ocr import extract_lab_results_from_image, extract_lab_results_from_pdf
 from backend.intake.document_classifier import classify_document
 from backend.intake.healthkit_sync import process_healthkit_payload
 from backend.features.lab_rater import rate_lab_results
 from backend.features.visit_prep import generate_visit_summary
 from backend.features.drug_interactions import check_drug_interactions
 from backend.models.health_profile import HealthProfile, Medication
+from backend.rag.health_rag import retrieve_health_evidence, inject_evidence_into_system_prompt
 from backend.utils.logger import get_logger
 
 load_dotenv()
@@ -570,17 +571,15 @@ async def analyze_document(
         )
         return base_response
 
-    # Step 2 — OCR extraction (only for image types; skip for PDFs without image content)
+    # Step 2 — extract lab results: use document API for PDFs, vision for images
     image_types = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-    if file.content_type not in image_types:
-        log.info("document_analyze_pdf_no_ocr", user_id=user_id)
-        return {**base_response, "rated_results": [], "abnormal_count": 0,
-                "total_count": 0, "import_summary": "PDF classified as bloodwork — scan as image for result extraction."}
-
     try:
-        raw_results = await extract_lab_results_from_image(
-            file_bytes, file.content_type or "image/jpeg",
-        )
+        if file.content_type in image_types:
+            raw_results = await extract_lab_results_from_image(
+                file_bytes, file.content_type or "image/jpeg",
+            )
+        else:
+            raw_results = await extract_lab_results_from_pdf(file_bytes)
     except anthropic.APIError as exc:
         log.error("document_analyze_ocr_failed", user_id=user_id, error=str(exc))
         raise HTTPException(status_code=500, detail="Lab extraction service temporarily unavailable")
@@ -704,3 +703,169 @@ async def drug_interaction_check(request: DrugCheckRequest) -> dict:
         raise HTTPException(status_code=404, detail="Profile not found")
     warnings = check_drug_interactions(profile.current_medications, request.new_drug)
     return {"warnings": warnings, "new_drug": request.new_drug}
+
+
+# ---------------------------------------------------------------------------
+# Health RAG — grounded evidence retrieval
+# ---------------------------------------------------------------------------
+
+class HealthRAGRequest(BaseModel):
+    """
+    Request for the health RAG evidence endpoint.
+
+    Attributes:
+        user_id: Supabase auth user ID — used to load patient context.
+        question: The health question to retrieve evidence for.
+        include_evidence_block: If True, return the formatted evidence block
+            in addition to metadata.  Defaults to True.
+        max_results: Max papers to include in the evidence block (1–15).
+    """
+
+    user_id: str
+    question: str
+    include_evidence_block: bool = True
+    max_results: int = Field(default=10, ge=1, le=15)
+
+
+class RankedPaperSummary(BaseModel):
+    """
+    Lightweight summary of a single ranked paper for API responses.
+
+    Attributes:
+        title: Paper title.
+        authors: Formatted author string.
+        year: Publication year.
+        journal: Journal name.
+        evidence_level: OCEBM level 1–5.
+        evidence_label: Human-readable evidence level label.
+        composite_score: Weighted composite quality score in [0, 1].
+        citation_count: Total inbound citations.
+        doi: Digital Object Identifier.
+        pmid: PubMed ID.
+        source_label: Source database name.
+        tldr: AI-generated one-sentence summary (Semantic Scholar only).
+    """
+
+    title: str
+    authors: str
+    year: int | None
+    journal: str | None
+    evidence_level: int
+    evidence_label: str
+    composite_score: float
+    citation_count: int
+    doi: str | None
+    pmid: str | None
+    source_label: str
+    tldr: str | None
+
+
+class HealthRAGResponse(BaseModel):
+    """
+    Response from the health RAG evidence endpoint.
+
+    Attributes:
+        question: Original question (echoed back for traceability).
+        expanded_queries: The 3 academic queries used for retrieval.
+        evidence_block: Formatted text block for system-prompt injection.
+        papers: Top-ranked paper summaries.
+        total_candidates: Total papers retrieved before ranking.
+        sources_used: Source database names that returned results.
+    """
+
+    question: str
+    expanded_queries: list[str]
+    evidence_block: str
+    papers: list[RankedPaperSummary]
+    total_candidates: int
+    sources_used: list[str]
+
+
+@app.post("/api/health-rag/query", response_model=HealthRAGResponse)
+async def health_rag_query(request: HealthRAGRequest) -> HealthRAGResponse:
+    """
+    Retrieve grounded academic evidence for a health question.
+
+    Pipeline:
+    1. Load optional patient context from health profile
+    2. Expand the question into 3 academic search queries via Claude Haiku
+    3. Retrieve papers from Semantic Scholar + OpenAlex in parallel
+    4. Grade with OCEBM criteria, deduplicate, compute composite scores
+    5. Format top papers into a structured evidence block
+    6. Return evidence block + paper metadata
+
+    The evidence block is designed to be prepended to a Claude system prompt
+    so that every health response is grounded in peer-reviewed literature.
+
+    Args:
+        request: HealthRAGRequest with user_id, question, and options.
+
+    Returns:
+        HealthRAGResponse with evidence block and ranked paper summaries.
+
+    Raises:
+        HTTPException: 500 on retrieval or ranking failure.
+    """
+    # Load patient context for query expansion (without identifying details)
+    patient_context = ""
+    try:
+        profile = await get_profile(request.user_id)
+        if profile:
+            parts: list[str] = []
+            if profile.conditions:
+                parts.append(f"conditions: {', '.join(profile.conditions[:5])}")
+            if profile.current_medications:
+                med_names = [m.name for m in profile.current_medications[:5]]
+                parts.append(f"medications: {', '.join(med_names)}")
+            if profile.age:
+                parts.append(f"age: {profile.age}")
+            if profile.sex:
+                parts.append(f"sex: {profile.sex}")
+            patient_context = "; ".join(parts)
+    except Exception as exc:
+        log.warning("health_rag_profile_load_failed", user_id=request.user_id, error=str(exc))
+
+    try:
+        rag_result = await retrieve_health_evidence(
+            question=request.question,
+            patient_context=patient_context,
+            max_results=request.max_results,
+        )
+    except Exception as exc:
+        log.error("health_rag_retrieval_failed", user_id=request.user_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Evidence retrieval failed — please try again")
+
+    paper_summaries = [
+        RankedPaperSummary(
+            title=p.title,
+            authors=p.authors,
+            year=p.year,
+            journal=p.journal,
+            evidence_level=p.evidence_level,
+            evidence_label=p.evidence_label,
+            composite_score=p.composite_score,
+            citation_count=p.citation_count,
+            doi=p.doi,
+            pmid=p.pmid,
+            source_label=p.source_label,
+            tldr=p.tldr,
+        )
+        for p in rag_result.ranked_papers
+    ]
+
+    log.info(
+        "health_rag_complete",
+        user_id=request.user_id,
+        papers=len(paper_summaries),
+        total_candidates=rag_result.total_candidates,
+        sources=list(rag_result.sources_used),
+    )
+
+    return HealthRAGResponse(
+        question=request.question,
+        expanded_queries=rag_result.expanded_queries,
+        evidence_block=rag_result.evidence_block if request.include_evidence_block else "",
+        papers=paper_summaries,
+        total_candidates=rag_result.total_candidates,
+        sources_used=list(rag_result.sources_used),
+    )

@@ -185,7 +185,7 @@ async def upsert_profile(profile: HealthProfile) -> HealthProfile:
             "conversation_count": profile.conversation_count,
             "updated_at": datetime.utcnow().isoformat(),
         }
-        supabase.table("health_profiles").upsert(row).execute()
+        supabase.table("health_profiles").upsert(row, on_conflict="user_id").execute()
         log.info("profile_upserted", user_id=profile.user_id)
         return profile
     except Exception as exc:

@@ -1,10 +1,14 @@
 /**
  * Always-visible health profile sidebar for the web chat interface.
+ *
+ * Updates instantly when the parent component calls setProfile() after
+ * an EditProfileModal save — no separate fetch needed.
  */
 
 'use client';
 
 import type { HealthProfile } from '../lib/types';
+import { FACT_CATEGORIES } from '../lib/health-facts';
 
 interface HealthProfileSidebarProps {
   profile: HealthProfile | null;
@@ -19,6 +23,48 @@ const STAT_BG      = 'rgba(56,189,248,0.08)';
 const TEXT_SEC     = 'rgba(186,230,253,0.6)';
 const TEXT_MUTED   = 'rgba(186,230,253,0.35)';
 
+/** Convert height_cm to a display string like 5′11″. */
+function formatHeight(cm: number | null | undefined): string | null {
+  if (!cm) return null;
+  const totalIn = cm / 2.54;
+  const ft = Math.floor(totalIn / 12);
+  const inches = Math.round(totalIn % 12);
+  return `${ft}′${inches}″`;
+}
+
+/** Convert weight_kg to lbs display string. */
+function formatWeight(kg: number | null | undefined): string | null {
+  if (!kg) return null;
+  return `${Math.round(kg * 2.2046)} lbs`;
+}
+
+/**
+ * Group health_facts into their questionnaire categories.
+ * Facts not matching any known category go into "Learned" bucket.
+ */
+function groupFacts(facts: string[]): { cat: string; items: string[] }[] {
+  const buckets = new Map<string, string[]>();
+  const learned: string[] = [];
+
+  for (const fact of facts) {
+    let matched = false;
+    for (const cat of FACT_CATEGORIES) {
+      if (cat.options.includes(fact)) {
+        if (!buckets.has(cat.label)) buckets.set(cat.label, []);
+        buckets.get(cat.label)!.push(fact);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) learned.push(fact);
+  }
+
+  const result: { cat: string; items: string[] }[] = [];
+  for (const [cat, items] of buckets) result.push({ cat, items });
+  if (learned.length > 0) result.push({ cat: 'Learned', items: learned });
+  return result;
+}
+
 export function HealthProfileSidebar({ profile }: HealthProfileSidebarProps): React.ReactElement {
   if (!profile) {
     return (
@@ -32,6 +78,9 @@ export function HealthProfileSidebar({ profile }: HealthProfileSidebarProps): Re
     (l) => l.status === 'high' || l.status === 'low' || l.status === 'critical',
   );
   const normalLabs = profile.recent_labs.filter((l) => l.status === 'normal');
+  const heightStr = formatHeight(profile.height_cm);
+  const weightStr = formatWeight(profile.weight_kg);
+  const factGroups = groupFacts(profile.health_facts);
 
   return (
     <aside className="w-72 flex-shrink-0 overflow-y-auto p-4" style={{ background: SIDEBAR_BG, borderRight: SIDEBAR_BORDER }}>
@@ -42,11 +91,22 @@ export function HealthProfileSidebar({ profile }: HealthProfileSidebarProps): Re
           Sana Help knows your health
         </p>
         <p className="mt-1 text-xl font-bold">{profile.display_name}</p>
-        {profile.age && profile.sex && (
-          <p className="text-sm" style={{ color: TEXT_SEC }}>
-            {profile.age} y/o · {profile.sex}
+
+        {/* Age + sex */}
+        {(profile.age || profile.sex) && (
+          <p className="text-sm mt-0.5" style={{ color: TEXT_SEC }}>
+            {[profile.age ? `${profile.age} y/o` : null, profile.sex].filter(Boolean).join(' · ')}
           </p>
         )}
+
+        {/* Height + weight */}
+        {(heightStr || weightStr) && (
+          <p className="text-xs mt-0.5" style={{ color: TEXT_MUTED }}>
+            {[heightStr, weightStr].filter(Boolean).join(' · ')}
+          </p>
+        )}
+
+        {/* Stats row */}
         <div className="mt-3 flex gap-3 text-center text-xs">
           <div className="flex-1 rounded-lg py-1.5" style={{ backgroundColor: STAT_BG, border: '1px solid rgba(56,189,248,0.12)' }}>
             <div className="text-lg font-bold text-white">{profile.primary_conditions.length}</div>
@@ -56,8 +116,13 @@ export function HealthProfileSidebar({ profile }: HealthProfileSidebarProps): Re
             <div className="text-lg font-bold text-white">{profile.current_medications.length}</div>
             <div style={{ color: TEXT_SEC }}>meds</div>
           </div>
-          <div className="flex-1 rounded-lg py-1.5"
-            style={{ backgroundColor: abnormalLabs.length > 0 ? 'rgba(251,146,60,0.25)' : STAT_BG, border: abnormalLabs.length > 0 ? '1px solid rgba(251,146,60,0.4)' : '1px solid rgba(56,189,248,0.12)' }}>
+          <div
+            className="flex-1 rounded-lg py-1.5"
+            style={{
+              backgroundColor: abnormalLabs.length > 0 ? 'rgba(251,146,60,0.25)' : STAT_BG,
+              border: abnormalLabs.length > 0 ? '1px solid rgba(251,146,60,0.4)' : '1px solid rgba(56,189,248,0.12)',
+            }}
+          >
             <div className="text-lg font-bold text-white">{abnormalLabs.length}</div>
             <div style={{ color: TEXT_SEC }}>abnormal</div>
           </div>
@@ -145,13 +210,14 @@ export function HealthProfileSidebar({ profile }: HealthProfileSidebarProps): Re
         </SidebarSection>
       )}
 
-      {profile.health_facts.length > 0 && (
-        <SidebarSection title="Learned from conversations">
-          {profile.health_facts.slice(-6).map((fact, i) => (
+      {/* Lifestyle facts grouped by category */}
+      {factGroups.map(({ cat, items }) => (
+        <SidebarSection key={cat} title={cat}>
+          {items.map((fact, i) => (
             <p key={i} className="mb-1 text-xs leading-relaxed" style={{ color: TEXT_MUTED }}>{fact}</p>
           ))}
         </SidebarSection>
-      )}
+      ))}
     </aside>
   );
 }
@@ -159,7 +225,10 @@ export function HealthProfileSidebar({ profile }: HealthProfileSidebarProps): Re
 function SidebarSection({ title, children }: { title: string; children: React.ReactNode }): React.ReactElement {
   return (
     <div className="mb-4">
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: '#38bdf8', textShadow: '0 0 8px rgba(56,189,248,0.3)', opacity: 0.7 }}>{title}</h3>
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider"
+        style={{ color: '#38bdf8', textShadow: '0 0 8px rgba(56,189,248,0.3)', opacity: 0.7 }}>
+        {title}
+      </h3>
       {children}
     </div>
   );

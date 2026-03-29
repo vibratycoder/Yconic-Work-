@@ -8,6 +8,7 @@
 import { useState, useCallback } from 'react';
 import type { HealthProfile, Medication } from '../lib/types';
 import { updateHealthProfile } from '../lib/api';
+import { FACT_CATEGORIES, ALL_BASELINE_FACTS } from '../lib/health-facts';
 
 const COMMON_CONDITIONS = [
   'Type 2 Diabetes', 'Prediabetes', 'Hypertension', 'High Cholesterol',
@@ -26,7 +27,8 @@ const COMMON_ALLERGIES = [
   'Dairy', 'Eggs', 'Soy', 'Wheat / Gluten',
 ];
 
-type Tab = 'conditions' | 'medications' | 'allergies';
+
+type Tab = 'demographics' | 'conditions' | 'medications' | 'allergies' | 'learned';
 
 interface MedDraft {
   name: string;
@@ -54,13 +56,38 @@ interface EditProfileModalProps {
  * Three tabs: Conditions, Medications, Allergies.
  * Saves via PUT /api/profile/{userId} and calls onSaved on success.
  */
+function cmToFtIn(cm: number | null | undefined): { ft: string; inches: string } {
+  if (!cm) return { ft: '', inches: '' };
+  const totalInches = cm / 2.54;
+  const ft = Math.floor(totalInches / 12);
+  const inches = Math.round(totalInches % 12);
+  return { ft: String(ft), inches: inches > 0 ? String(inches) : '' };
+}
+
+function kgToLbs(kg: number | null | undefined): string {
+  if (!kg) return '';
+  return String(Math.round(kg * 2.2046));
+}
+
+function ftInToCm(ft: string, inches: string): number | null {
+  const f = parseFloat(ft);
+  if (isNaN(f)) return null;
+  return Math.round((f * 30.48) + (parseFloat(inches || '0') * 2.54));
+}
+
+function lbsToKg(lbs: string): number | null {
+  const v = parseFloat(lbs);
+  if (isNaN(v)) return null;
+  return Math.round(v * 0.4536 * 10) / 10;
+}
+
 export function EditProfileModal({
   profile,
   userId,
   onSaved,
   onClose,
 }: EditProfileModalProps): React.ReactElement {
-  const [tab, setTab] = useState<Tab>('conditions');
+  const [tab, setTab] = useState<Tab>('demographics');
   const [conditions, setConditions] = useState<string[]>(profile.primary_conditions);
   const [medications, setMedications] = useState<Medication[]>(profile.current_medications);
   const [allergies, setAllergies] = useState<string[]>(profile.allergies);
@@ -68,6 +95,17 @@ export function EditProfileModal({
   const [medDraft, setMedDraft] = useState<MedDraft>(INITIAL_MED_DRAFT);
   const [customCondition, setCustomCondition] = useState('');
   const [customAllergy, setCustomAllergy] = useState('');
+
+  const [healthFacts, setHealthFacts] = useState<string[]>(profile.health_facts);
+  const [customFact, setCustomFact] = useState('');
+
+  // Demographics
+  const initHeight = cmToFtIn(profile.height_cm);
+  const [age, setAge] = useState<string>(profile.age != null ? String(profile.age) : '');
+  const [sex, setSex] = useState<string>(profile.sex ?? '');
+  const [heightFt, setHeightFt] = useState<string>(initHeight.ft);
+  const [heightIn, setHeightIn] = useState<string>(initHeight.inches);
+  const [weightLbs, setWeightLbs] = useState<string>(kgToLbs(profile.weight_kg));
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,15 +151,41 @@ export function EditProfileModal({
     setMedications((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  const removeHealthFact = useCallback((index: number): void => {
+    setHealthFacts((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const toggleFact = useCallback((f: string): void => {
+    const group = FACT_CATEGORIES.find((c) => c.exclusive && c.options.includes(f));
+    setHealthFacts((prev) => {
+      if (prev.includes(f)) return prev.filter((x) => x !== f);
+      // For exclusive groups, remove any other selection from the same group first.
+      const withoutGroup = group ? prev.filter((x) => !group.options.includes(x)) : prev;
+      return [...withoutGroup, f];
+    });
+  }, []);
+
+  const addCustomFact = useCallback((): void => {
+    const val = customFact.trim();
+    if (!val || healthFacts.includes(val)) return;
+    setHealthFacts((prev) => [...prev, val]);
+    setCustomFact('');
+  }, [customFact, healthFacts]);
+
   const handleSave = useCallback(async (): Promise<void> => {
     setSaving(true);
     setError(null);
     try {
       const updated = await updateHealthProfile(userId, {
         ...profile,
+        age: age ? parseInt(age, 10) : null,
+        sex: sex || null,
+        height_cm: ftInToCm(heightFt, heightIn),
+        weight_kg: lbsToKg(weightLbs),
         primary_conditions: conditions,
         current_medications: medications,
         allergies,
+        health_facts: healthFacts,
       });
       onSaved(updated);
     } catch (err) {
@@ -129,12 +193,14 @@ export function EditProfileModal({
     } finally {
       setSaving(false);
     }
-  }, [userId, profile, conditions, medications, allergies, onSaved]);
+  }, [userId, profile, age, sex, heightFt, heightIn, weightLbs, conditions, medications, allergies, healthFacts, onSaved]);
 
   const TABS: { id: Tab; label: string }[] = [
+    { id: 'demographics', label: 'Basics' },
     { id: 'conditions', label: 'Conditions' },
     { id: 'medications', label: 'Medications' },
     { id: 'allergies', label: 'Allergies' },
+    { id: 'learned', label: 'Learned' },
   ];
 
   return (
@@ -186,6 +252,93 @@ export function EditProfileModal({
 
         {/* Tab content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
+          {tab === 'demographics' && (
+            <div className="space-y-4">
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                Used to personalise lab reference ranges and clinical context.
+              </p>
+              {/* Age */}
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>Age</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  placeholder="e.g. 42"
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  className="w-full rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </div>
+              {/* Sex */}
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>Biological sex</label>
+                <div className="flex gap-2">
+                  {['male', 'female', 'other'].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setSex(sex === s ? '' : s)}
+                      className="flex-1 rounded-xl py-2 text-sm font-semibold transition-colors capitalize"
+                      style={sex === s
+                        ? { backgroundColor: '#0f4c75', color: '#fff', border: '1px solid #38bdf8' }
+                        : { backgroundColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Height */}
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>Height</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="ft"
+                      value={heightFt}
+                      onChange={(e) => setHeightFt(e.target.value)}
+                      className="w-full rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    />
+                    <span className="absolute right-3 top-2 text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>ft</span>
+                  </div>
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max="11"
+                      placeholder="in"
+                      value={heightIn}
+                      onChange={(e) => setHeightIn(e.target.value)}
+                      className="w-full rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    />
+                    <span className="absolute right-3 top-2 text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>in</span>
+                  </div>
+                </div>
+              </div>
+              {/* Weight */}
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>Weight</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 165"
+                    value={weightLbs}
+                    onChange={(e) => setWeightLbs(e.target.value)}
+                    className="w-full rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  />
+                  <span className="absolute right-3 top-2 text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>lbs</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {tab === 'conditions' && (
             <>
               <div className="flex flex-wrap gap-2">
@@ -368,6 +521,90 @@ export function EditProfileModal({
                 </button>
               </div>
             </>
+          )}
+          {tab === 'learned' && (
+            <div className="space-y-5">
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                Select facts that apply to you. These are used to personalise every health response.
+              </p>
+
+              {/* Categorised baseline presets — same options as sign-up questionnaire */}
+              {FACT_CATEGORIES.map((cat) => (
+                <div key={cat.id}>
+                  <p className="text-xs font-semibold uppercase tracking-wide mb-2"
+                    style={{ color: '#38bdf8' }}>
+                    {cat.label}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {cat.options.map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => toggleFact(f)}
+                        className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
+                        style={healthFacts.includes(f)
+                          ? { backgroundColor: '#0f4c75', color: '#fff', border: '1px solid #38bdf8' }
+                          : { backgroundColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.1)' }}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {/* Facts learned from conversations (not in any preset category) */}
+              {healthFacts.filter((f) => !ALL_BASELINE_FACTS.includes(f)).length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                    Learned from conversations
+                  </p>
+                  <div className="space-y-2">
+                    {healthFacts.filter((f) => !ALL_BASELINE_FACTS.includes(f)).map((fact) => (
+                      <div
+                        key={fact}
+                        className="flex items-start gap-3 rounded-xl px-3 py-2.5"
+                        style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}
+                      >
+                        <span className="flex-1 text-sm text-white leading-relaxed">{fact}</span>
+                        <button
+                          onClick={() => removeHealthFact(healthFacts.indexOf(fact))}
+                          className="text-xs px-2 py-0.5 rounded-lg flex-shrink-0"
+                          style={{ color: '#fca5a5' }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Add custom fact */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  Add custom
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. Follows a low-FODMAP diet"
+                    value={customFact}
+                    onChange={(e) => setCustomFact(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') addCustomFact(); }}
+                    className="flex-1 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  />
+                  <button
+                    onClick={addCustomFact}
+                    disabled={!customFact.trim()}
+                    className="rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-30"
+                    style={{ backgroundColor: '#0f4c75' }}
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 

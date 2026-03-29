@@ -38,6 +38,65 @@ Rules:
 - Return ONLY valid JSON — no markdown, no explanation"""
 
 
+def _parse_lab_json(raw: str, source: LabSource) -> list[LabResult]:
+    """
+    Parse Claude's JSON lab extraction response into LabResult objects.
+
+    Shared by both the image and PDF extraction paths.
+
+    Args:
+        raw: Raw text response from Claude.
+        source: Origin of the results (PHOTO_OCR for images, PDF for PDFs).
+
+    Returns:
+        List of LabResult objects; empty list on parse failure.
+    """
+    clean = re.sub(r"```(?:json)?\s*|\s*```", "", raw).strip()
+
+    try:
+        parsed = json.loads(clean)
+    except json.JSONDecodeError as exc:
+        log.warning("lab_ocr_json_failed", error=str(exc), raw=raw[:200])
+        return []
+
+    results: list[LabResult] = []
+    for item in parsed.get("results", []):
+        test_name = item.get("test_name")
+        if not test_name:
+            continue
+        try:
+            date_str = item.get("date_collected")
+            collected: date | None = None
+            if date_str:
+                try:
+                    collected = date.fromisoformat(date_str)
+                except ValueError:
+                    pass
+
+            status_raw = item.get("status", "unknown").lower()
+            try:
+                status = LabStatus(status_raw)
+            except ValueError:
+                status = LabStatus.UNKNOWN
+
+            results.append(LabResult(
+                test_name=test_name,
+                value=item.get("value"),
+                value_text=item.get("value_text"),
+                unit=item.get("unit"),
+                reference_range_low=item.get("reference_range_low"),
+                reference_range_high=item.get("reference_range_high"),
+                status=status,
+                date_collected=collected,
+                lab_source=source,
+            ))
+        except (KeyError, ValueError, TypeError) as exc:
+            log.warning("lab_ocr_result_parse_failed", test_name=test_name, error=str(exc))
+            continue
+
+    return results
+
+
 async def extract_lab_results_from_image(
     image_bytes: bytes,
     media_type: str,
@@ -77,57 +136,58 @@ async def extract_lab_results_from_image(
                         "data": image_b64,
                     },
                 },
-                {
-                    "type": "text",
-                    "text": "Extract all lab results from this image.",
-                },
+                {"type": "text", "text": "Extract all lab results from this image."},
             ],
         }],
     )
 
-    raw = response.content[0].text.strip()
-    clean = re.sub(r"```(?:json)?\s*|\s*```", "", raw).strip()
+    results = _parse_lab_json(response.content[0].text.strip(), LabSource.PHOTO_OCR)
+    log.info("lab_ocr_image_complete", results_count=len(results))
+    return results
 
-    try:
-        parsed = json.loads(clean)
-    except json.JSONDecodeError as exc:
-        log.warning("lab_ocr_json_failed", error=str(exc), raw=raw[:200])
-        return []
 
-    results: list[LabResult] = []
-    for item in parsed.get("results", []):
-        test_name = item.get("test_name")
-        if not test_name:
-            continue
-        try:
-            date_str = item.get("date_collected")
-            collected: date | None = None
-            if date_str:
-                try:
-                    collected = date.fromisoformat(date_str)
-                except ValueError:
-                    pass
+async def extract_lab_results_from_pdf(
+    pdf_bytes: bytes,
+) -> list[LabResult]:
+    """
+    Extract structured lab results from a PDF lab report using the Anthropic document API.
 
-            status_raw = item.get("status", "unknown").lower()
-            try:
-                status = LabStatus(status_raw)
-            except ValueError:
-                status = LabStatus.UNKNOWN
+    Sends the PDF as a base64-encoded document block so Claude can read the
+    full text content of the file, then parses the response into LabResult objects.
 
-            results.append(LabResult(
-                test_name=test_name,
-                value=item.get("value"),
-                value_text=item.get("value_text"),
-                unit=item.get("unit"),
-                reference_range_low=item.get("reference_range_low"),
-                reference_range_high=item.get("reference_range_high"),
-                status=status,
-                date_collected=collected,
-                lab_source=LabSource.PHOTO_OCR,
-            ))
-        except (KeyError, ValueError, TypeError) as exc:
-            log.warning("lab_ocr_result_parse_failed", test_name=test_name, error=str(exc))
-            continue
+    Args:
+        pdf_bytes: Raw PDF bytes.
 
-    log.info("lab_ocr_complete", results_count=len(results))
+    Returns:
+        List of LabResult objects extracted from the document.
+        Returns empty list on parse failure or if no results found.
+
+    Raises:
+        anthropic.APIError: On Anthropic API failure.
+    """
+    pdf_b64 = base64.standard_b64encode(pdf_bytes).decode("utf-8")
+    client = anthropic.AsyncAnthropic()
+
+    response = await client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=4096,
+        system=LAB_OCR_SYSTEM,
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "application/pdf",
+                        "data": pdf_b64,
+                    },
+                },
+                {"type": "text", "text": "Extract all lab results from this PDF document."},
+            ],
+        }],
+    )
+
+    results = _parse_lab_json(response.content[0].text.strip(), LabSource.PDF)
+    log.info("lab_ocr_pdf_complete", results_count=len(results))
     return results

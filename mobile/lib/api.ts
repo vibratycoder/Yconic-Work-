@@ -50,6 +50,26 @@ export async function fetchHealthProfile(userId: string): Promise<HealthProfile 
 }
 
 /**
+ * Update (upsert) the user's health profile on the backend.
+ *
+ * @param userId - Authenticated Supabase user ID
+ * @param profile - Full HealthProfile with updated fields
+ * @returns Saved HealthProfile
+ */
+export async function updateHealthProfile(userId: string, profile: HealthProfile): Promise<HealthProfile> {
+  const response = await fetch(`${API_BASE}/api/profile/${userId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(profile),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Profile update failed: ${response.status} ${text}`);
+  }
+  return response.json() as Promise<HealthProfile>;
+}
+
+/**
  * Upload a lab report image for OCR extraction.
  *
  * @param userId - Authenticated Supabase user ID
