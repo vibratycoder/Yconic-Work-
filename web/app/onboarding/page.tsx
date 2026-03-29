@@ -100,7 +100,7 @@ const HEALTH_GOALS = [
 ];
 
 const STEPS = [
-  { id: 1, title: 'Your basics', subtitle: 'Helps Pulse personalise every response' },
+  { id: 1, title: 'Your basics', subtitle: 'Helps Sona Health personalise every response' },
   { id: 2, title: 'Medical conditions', subtitle: 'Select all that apply' },
   { id: 3, title: 'Current medications', subtitle: 'Include dose and frequency' },
   { id: 4, title: 'Allergies', subtitle: 'Drug and food allergies' },

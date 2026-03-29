@@ -30,7 +30,7 @@ interface CitationSheetProps {
 export function CitationSheet({ citation, onClose }: CitationSheetProps): React.ReactElement | null {
   if (!citation) return null;
 
-  const handleOpenPubMed = (): void => {
+  const handleOpenSource = (): void => {
     Linking.openURL(citation.pubmed_url);
   };
 
@@ -40,15 +40,19 @@ export function CitationSheet({ citation, onClose }: CitationSheetProps): React.
       <View style={styles.sheet}>
         <View style={styles.handle} />
         <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <Text style={styles.pmidLabel}>PMID: {citation.pmid}</Text>
+          <Text style={styles.pmidLabel}>
+            {citation.source === 'google_scholar' ? `Scholar ID: ${citation.pmid}` : `PMID: ${citation.pmid}`}
+          </Text>
           <Text style={styles.title}>{citation.title}</Text>
           <Text style={styles.journal}>
             {citation.journal} · {citation.year}
           </Text>
           <Text style={styles.abstractLabel}>Abstract</Text>
           <Text style={styles.abstractText}>{citation.display_summary}</Text>
-          <TouchableOpacity style={styles.pubmedButton} onPress={handleOpenPubMed}>
-            <Text style={styles.pubmedButtonText}>View on PubMed</Text>
+          <TouchableOpacity style={styles.pubmedButton} onPress={handleOpenSource}>
+            <Text style={styles.pubmedButtonText}>
+              {citation.source === 'google_scholar' ? 'View on Google Scholar' : 'View on PubMed'}
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </View>

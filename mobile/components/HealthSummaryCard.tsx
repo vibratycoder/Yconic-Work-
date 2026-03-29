@@ -25,7 +25,7 @@ export function HealthSummaryCard({ profile }: HealthSummaryCardProps): React.Re
   return (
     <View style={styles.card}>
       <Text style={styles.memoryIndicator}>
-        Pulse knows your health
+        Sona Health knows your health
       </Text>
       <View style={styles.statsRow}>
         <StatPill label="Conditions" value={profile.primary_conditions.length} />

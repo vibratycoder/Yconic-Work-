@@ -19,15 +19,17 @@ REQUEST_TIMEOUT = 10
 @dataclass
 class Citation:
     """
-    A single PubMed citation with metadata for evidence display.
+    A single academic citation with metadata for evidence display.
 
     Attributes:
-        pmid: PubMed ID string
+        pmid: PubMed ID string, or Google Scholar cluster ID for Scholar sources
         title: Article title
         journal: Journal name
         year: Publication year
         abstract: Article abstract text
         authors: Formatted author string
+        article_url: Direct article URL; overrides the default PubMed URL when set
+        source: Origin database — 'pubmed' or 'google_scholar'
     """
     pmid: str
     title: str
@@ -35,15 +37,22 @@ class Citation:
     year: str
     abstract: str
     authors: str = ""
+    article_url: str = ""
+    source: str = "pubmed"
 
     @property
     def pubmed_url(self) -> str:
         """
-        Return the canonical PubMed URL for this article.
+        Return the article URL for display and linking.
+
+        Returns article_url when set (e.g. Google Scholar links), otherwise
+        falls back to the canonical PubMed URL.
 
         Returns:
-            Full URL string to PubMed abstract page.
+            Full URL string to the article source page.
         """
+        if self.article_url:
+            return self.article_url
         return f"https://pubmed.ncbi.nlm.nih.gov/{self.pmid}/"
 
     @property
@@ -62,11 +71,12 @@ class Citation:
         Format citation as a structured block for LLM system prompt injection.
 
         Returns:
-            Multi-line string with PMID, title, journal, year, and abstract.
+            Multi-line string with source ID, title, journal, year, and abstract.
         """
         abstract_trunc = self.abstract[:1200] + "..." if len(self.abstract) > 1200 else self.abstract
+        id_label = "Scholar ID" if self.source == "google_scholar" else "PMID"
         return (
-            f"PMID: {self.pmid}\n"
+            f"{id_label}: {self.pmid}\n"
             f"Title: {self.title}\n"
             f"Authors: {self.authors}\n"
             f"Journal: {self.journal} ({self.year})\n"
@@ -237,10 +247,10 @@ async def get_citations_for_question(
     max_results: int = MAX_CITATIONS,
 ) -> list[Citation]:
     """
-    Orchestrate a full PubMed search for a health question.
+    Orchestrate citation retrieval for a health question.
 
-    Builds an optimized query, searches PubMed, fetches abstracts, and
-    returns citations. Degrades gracefully — returns empty list on any failure.
+    Attempts Google Scholar first (primary source) then falls back to PubMed
+    if Scholar returns no results or encounters an error.
 
     Args:
         question: User's health question in natural language
@@ -250,6 +260,16 @@ async def get_citations_for_question(
     Returns:
         List of Citation objects, empty on any failure.
     """
+    from backend.evidence.google_scholar import search_google_scholar
+
+    # Primary: Google Scholar
+    scholar_citations = await search_google_scholar(question, max_results)
+    if scholar_citations:
+        log.info("citations_from_google_scholar", count=len(scholar_citations))
+        return scholar_citations
+
+    # Fallback: PubMed
+    log.info("scholar_empty_falling_back_to_pubmed", question=question[:60])
     from backend.evidence.query_builder import build_pubmed_query
     query = build_pubmed_query(question, health_domain)
     log.info("pubmed_query_built", domain=health_domain, query=query[:80])

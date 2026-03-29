@@ -1,23 +1,47 @@
 /**
- * Authenticated app layout with bottom tab navigation.
+ * App tab layout — configures the bottom tab navigator with the dark design
+ * that matches the Pulse web app.
  */
 
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-/** Tab navigator for the main authenticated app screens. */
+/** Solid dark background component used as the tab bar background. */
+function TabBarBackground(): React.ReactElement {
+  return <View style={styles.tabBarBackground} />;
+}
+
+/**
+ * Root layout for all authenticated (app) screens.
+ *
+ * Renders a bottom tab navigator with four tabs: Home, Chat, Labs, and
+ * Profile. Visual styling mirrors the web app's dark theme:
+ *   - Background:    #04090f
+ *   - Active tint:   #38bdf8
+ *   - Inactive tint: rgba(255,255,255,0.3)
+ *   - Top border:    rgba(56,189,248,0.12), 1px
+ *   - Height:        60, paddingBottom 8
+ */
 export default function AppLayout(): React.ReactElement {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#0EA5E9',
-        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarActiveTintColor: '#38bdf8',
+        tabBarInactiveTintColor: 'rgba(255,255,255,0.3)',
+        tabBarBackground: () => <TabBarBackground />,
         tabBarStyle: {
+          backgroundColor: '#04090f',
+          borderTopColor: 'rgba(56,189,248,0.12)',
           borderTopWidth: 1,
-          borderTopColor: '#F3F4F6',
-          backgroundColor: '#FFFFFF',
-          paddingBottom: 4,
+          height: 60,
+          paddingBottom: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '600',
         },
       }}
     >
@@ -25,7 +49,7 @@ export default function AppLayout(): React.ReactElement {
         name="home"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <Ionicons name="home-outline" color={color} size={size} />
           ),
         }}
@@ -33,8 +57,8 @@ export default function AppLayout(): React.ReactElement {
       <Tabs.Screen
         name="chat"
         options={{
-          title: 'Ask Pulse',
-          tabBarIcon: ({ color, size }) => (
+          title: 'Ask Sona Health',
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <Ionicons name="chatbubble-outline" color={color} size={size} />
           ),
         }}
@@ -43,7 +67,7 @@ export default function AppLayout(): React.ReactElement {
         name="labs"
         options={{
           title: 'Labs',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <Ionicons name="flask-outline" color={color} size={size} />
           ),
         }}
@@ -52,7 +76,7 @@ export default function AppLayout(): React.ReactElement {
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <Ionicons name="person-outline" color={color} size={size} />
           ),
         }}
@@ -60,3 +84,11 @@ export default function AppLayout(): React.ReactElement {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  /** Fills the tab bar area with the solid dark background colour. */
+  tabBarBackground: {
+    flex: 1,
+    backgroundColor: '#04090f',
+  },
+});

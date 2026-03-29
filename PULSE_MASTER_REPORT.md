@@ -9,7 +9,7 @@ Pulse is an AI-powered personal health co-pilot that transforms how individuals 
 
 Pulse is not a symptom checker. It is not a telehealth platform. It is a persistent, longitudinal health intelligence layer — one that knows your medications, your lab history, your family cardiac risk, and your wearable biometrics — and uses that context to give genuinely personalised, evidence-grounded answers at the moment you need them, before you even walk into a doctor's office.
 
-The system is live and running. The backend serves real API responses. The mobile app renders personalised lab ratings. The web interface accepts document uploads and classifies them automatically. This is not a pitch deck. This is working software.
+The system is live and running. The backend serves real API responses. The mobile app renders personalised lab ratings. The web interface renders personalised lab ratings with Table and Chart views. This is not a pitch deck. This is working software.
 
 ---
 
@@ -35,13 +35,14 @@ These are not edge-case problems. They are the defining healthcare challenge of 
 
 ### 1.3 Why Existing Solutions Fail
 
-| Solution | Failure Mode |
-|---|---|
-| WebMD / symptom checkers | No memory, no context, population-level generalisation, anxiety-inducing |
-| Telehealth (Teladoc, etc.) | Still physician-gated, expensive per session, no continuity |
-| Patient portal apps | Display data only, no interpretation, no intelligence |
-| Generic AI assistants (ChatGPT) | No medical context, no longitudinal memory, no safety gates |
-| Wearable companion apps | Siloed to one data source, shallow health insight |
+| Competitor | Category | Specific Failure Mode |
+|---|---|---|
+| Ada Health | AI symptom checker | Stateless — no memory between sessions. No lab integration. No personalised ranges. No PubMed citations. Generates anxiety-inducing differential diagnoses rather than actionable context. |
+| Babylon Health | Telehealth / AI triage | Physician-gated — AI is a triage layer to a human, not a persistent intelligence layer. No lab OCR. No wearable integration. Restructured multiple times; operational challenges in US market. |
+| K Health | AI primary care | Requires a physician consult for most clinical questions. No lab import. No persistent health memory. Subscription locks core features behind physician access. |
+| Apple Health / Health Records | Platform data aggregation | Displays data, provides no interpretation. No AI reasoning. No personalised ranges. No citation-backed answers. No emergency triage. A data container, not a health intelligence layer. |
+| ChatGPT / Claude (raw) | General AI assistant | No medical context, no longitudinal memory, no safety gates, no lab import, no PubMed grounding, no personalised ranges. Stateless by design — knows nothing about the user. |
+| Forward Health | Tech-enabled primary care | Requires physical clinic visits ($149/month). No mobile-first experience. No consumer lab OCR. Geographically limited. |
 
 None of them combine persistent memory, personalised clinical context, real-time evidence retrieval, and a safety-first architecture. Pulse does.
 
@@ -255,6 +256,22 @@ idx_symptom_logs_user_date    -- symptom timeline fast
 idx_conversations_user        -- conversation history fast
 ```
 
+### 4.8 Scalability Architecture
+
+**Database Scalability:**
+- Supabase provides managed PostgreSQL with read replicas via connection pooling (PgBouncer). At scale, the `health_profiles` table shards cleanly by `user_id` — all queries are user-scoped (no cross-user joins).
+- `lab_results` indexed on `(user_id, date_collected DESC)` — the most common query pattern (recent labs per user) is O(log n) with this index.
+- Supabase's global CDN edge network provides sub-50ms auth token verification globally.
+
+**API Concurrency:**
+- FastAPI + uvicorn workers scale horizontally. Each worker handles async I/O — a single worker can sustain hundreds of concurrent PubMed + Anthropic calls without blocking.
+- PubMed rate limit (3 req/s free tier) is mitigated by: (1) domain classification caching, (2) the Semantic Scholar + OpenAlex parallel pipeline as primary evidence retrieval (no rate limit), (3) PubMed as supplementary source only.
+- Anthropic API has no hard rate limit on Pro tier; tenacity handles transient 529s.
+
+**PHI / Data Residency:**
+- Supabase instance region selection enables GDPR-compliant EU data residency or US-only storage at deployment time.
+- Production deployment requires encryption at rest (Supabase default), TLS 1.2+ in transit (enforced), and Anthropic's data processing agreement for PHI use cases.
+
 ---
 
 ## 5. Product Features
@@ -324,6 +341,10 @@ The iOS app syncs with Apple HealthKit to pull a 7-day biometric summary:
 - Blood glucose (for CGM users)
 
 This data is injected into the Claude system prompt alongside lab results — so when a user asks about fatigue, Pulse knows their sleep has averaged 5.8 hours with poor quality for the past week.
+
+### 5.7 FHIR Interoperability Roadmap
+
+Phase 4 of the roadmap includes HL7 FHIR R4 connectors for the two dominant EHR systems (Epic and Cerner), which together represent 75%+ of US hospital deployments. FHIR's standardised resource types (Patient, Observation, MedicationRequest, DiagnosticReport) map directly to Pulse's `HealthProfile` model — the integration pathway is well-defined. This enables Pulse to ingest structured lab results, medication lists, and diagnostic reports directly from a patient's electronic health record, eliminating the need for photo OCR as the primary import mechanism. SMART on FHIR authentication allows patients to authorise Pulse's access to their EHR data without sharing credentials.
 
 ---
 
@@ -526,6 +547,22 @@ This profile is designed to trigger every significant clinical pathway in the sy
 
 ## 10. Execution Plan
 
+### 10.1 24-Hour Hackathon Sprint Plan
+
+Solo build — all modules built sequentially by a single engineer with Claude Code pair programming assistance.
+
+| Time Window | Deliverable | Owner |
+|---|---|---|
+| Hour 0–4 | Backend core: FastAPI skeleton, Supabase schema + RLS, HealthProfile model, `check_emergency()` gate, `/health` endpoint green | Solo engineer |
+| Hour 4–8 | Lab intelligence + OCR pipeline: `lab_ocr.py`, `document_classifier.py`, `lab_reference_ranges.py`, `lab_rater.py`, `patterns.py`, POST `/api/labs/scan` | Solo engineer |
+| Hour 8–12 | Web UI: `ChatInterface` component, bloodwork page with Table and Chart views, Tailwind styling, Supabase auth wiring | Solo engineer |
+| Hour 12–16 | Mobile: chat screen, labs screen, profile screen, onboarding flow, Expo Router navigation, HealthKit integration | Solo engineer |
+| Hour 16–20 | RAG pipeline: Semantic Scholar + OpenAlex parallel retrieval, OCEBM evidence reranker, PubMed esearch/efetch with tenacity, citation injection into system prompt | Solo engineer |
+| Hour 20–23 | Integration testing + demo seeding: Marcus Chen seed script, end-to-end test suite (triage, injector, PubMed, lab OCR), bug fixes | Solo engineer |
+| Hour 23–24 | Final polish + submission: report, README, demo walkthrough, backend health check confirmation | Solo engineer |
+
+**Key milestones:** Backend `/health` check green by Hour 4. Marcus Chen demo profile fully runnable by Hour 22. All three screens (chat, labs, profile) rendering with live data by Hour 20.
+
 ### Phase 1 — Foundation (Complete)
 - ✅ Supabase schema with RLS on all five tables
 - ✅ FastAPI backend with all core routes
@@ -564,7 +601,7 @@ This profile is designed to trigger every significant clinical pathway in the sy
 ### Phase 4 — Growth Infrastructure
 - ⬜ Subscription tier (Stripe integration)
 - ⬜ PDF lab report ingestion (multi-page)
-- ⬜ EHR import (HL7 FHIR API connectors for Epic/Cerner)
+- ⬜ EHR import (HL7 FHIR R4 API connectors for Epic and Cerner — see Section 5.7)
 - ⬜ Longitudinal trend visualisation (lab values over time)
 - ⬜ Physician-facing view (share profile with provider)
 - ⬜ Multi-language support (Spanish, Mandarin, French)
@@ -605,15 +642,15 @@ This profile is designed to trigger every significant clinical pathway in the sy
 
 ## 12. Competitive Moat
 
-**1. Longitudinal Memory.** Most AI health tools are stateless. Pulse's profile enrichment loop — where every conversation adds facts to the persistent profile — creates a compounding intelligence advantage that deepens with use. After 6 months, Pulse knows things about a user's health that their primary care physician does not.
+**1. Longitudinal Memory** — Ada Health, K Health, and raw ChatGPT are entirely stateless. Ada's "health assessments" reset every session. K Health has no memory of prior consultations. ChatGPT knows nothing about the user unless explicitly re-pasted every conversation. Pulse's profile enrichment loop means after 6 months, Pulse knows things about a user's health that their primary care physician may not have on record.
 
-**2. Evidence Grounding.** Real PubMed citations, retrieved in real-time, specific to the domain of the question. Not hallucinated references. Not generic health articles. Peer-reviewed literature, PMID-verified, presented in plain language with expandable abstracts.
+**2. Evidence Grounding** — Babylon and K Health surface physician-written content that may be outdated and is not specific to the user's question domain. ChatGPT hallucinates citations with plausible-sounding but nonexistent PMIDs — a well-documented failure mode in clinical contexts. Pulse retrieves real PMIDs from PubMed in real-time, specific to the domain of the question — the same literature a cardiologist would cite, presented with full abstract access.
 
-**3. Personalised Clinical Ranges.** The lab rater is not just a lookup table. It is a demographic-aware clinical calibration engine covering 80+ tests. No consumer health app has this. Most patient portals use the same reference range for a 25-year-old and a 75-year-old.
+**3. Personalised Clinical Ranges** — Apple Health, Ada Health, and every patient portal in existence (Quest, LabCorp, Epic MyChart) uses population-average reference ranges printed on the lab report. A 47-year-old diabetic male on atorvastatin has materially different thresholds than a 25-year-old female athlete. Pulse's 80+ test demographic calibration engine — adjusting for sex, age, and BMI — is not a feature offered by any consumer health product currently on the market.
 
-**4. Safety Architecture.** The deterministic emergency gate is not a feature — it is a design constraint that is architecturally impossible to bypass. This is the kind of trust infrastructure that regulators, payers, and institutional partners require before recommending an AI health product. Pulse was built with it from commit one.
+**4. Safety Architecture** — No consumer health AI product has a deterministic, LLM-bypass emergency gate as a first-class architectural constraint. Ada and Babylon's triage pathways route through AI models, introducing non-determinism into safety-critical decisions. K Health's AI similarly processes symptom inputs through its model before escalation. Pulse's `check_emergency()` is pure Python string matching — zero-latency, zero-hallucination, impossible to bypass. This is the kind of trust infrastructure that regulators, payers, and institutional partners require before recommending an AI health product.
 
-**5. Wearable + Lab Fusion.** By combining HealthKit biometrics (sleep, HRV, steps, glucose) with lab values in a single context window, Pulse can reason about correlations that neither source can surface alone. Low HRV + poor sleep + rising HbA1c + increasing microalbumin tells a more complete story than any single data stream.
+**5. Wearable + Lab Fusion** — Apple Health aggregates wearable data in a silo. Lab portals (Quest, LabCorp) show lab data in isolation. Ada, Babylon, and K Health have no wearable integration. No competitor correlates HRV + sleep quality + HbA1c trend + microalbumin in a single reasoning context. Pulse does this in every chat response — the full biometric and biochemical picture is available to the model before the first token is generated.
 
 ---
 
@@ -630,6 +667,28 @@ Three conditions have converged that make Pulse possible — and inevitable:
 Pulse is that tool. The code is written. The backend is running. The mobile app is functional. The personalised intelligence is live.
 
 The question is not whether this category of product will exist. It already does. The question is who will build the one that earns the trust of a hundred million people managing their health every day.
+
+---
+
+## 14. Risk Assessment & Regulatory Strategy
+
+### 14.1 Technical Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|-----------|
+| PubMed/NCBI API rate limit (3 req/s free tier) | Medium | Medium | tenacity exponential backoff; cache domain → PMID mappings in Supabase; fallback to Semantic Scholar + OpenAlex RAG pipeline as primary evidence retrieval (no rate limit on either) |
+| HealthKit permissions denied by user | High | Low | Wearable data is purely additive context; all core features function without it; graceful degradation in system prompt — the model simply omits biometric context rather than erroring |
+| Lab classifier misclassifies document | Medium | Medium | Two-pass approach (classify first, extract only if confidence threshold met); user shown `document_type` + confidence score; manual override option in Phase 3 roadmap |
+| Anthropic API latency spike | Low | High | aiohttp timeout (30s); user-facing "thinking" indicator; retry with exponential backoff via tenacity; cached emergency responses are pure strings with no API dependency whatsoever |
+| Supabase RLS misconfiguration | Low | Critical | RLS policies enforced at DB layer not app layer — a bug in application code cannot bypass row-level security; policy unit tests included in test suite; service role key scoped to backend only, never exposed to client |
+
+### 14.2 Regulatory Risks
+
+| Risk | Assessment | Approach |
+|------|-----------|---------|
+| FDA Software as a Medical Device (SaMD) | Pulse does not diagnose, prescribe, or recommend treatment. It provides health information and education. Under FDA's Digital Health Policy, informational tools that do not meet the definition of a medical device are exempt. Pulse explicitly disclaims diagnostic intent in every response via the system prompt. | Maintain "informational only" positioning; add disclaimer footers to all clinical content; never use "diagnose" language in product copy or UI strings; legal review before production launch |
+| HIPAA compliance | Current build is a development/hackathon prototype. Production deployment handling real PHI requires: Business Associate Agreements with Supabase and Anthropic, encrypted data at rest and in transit, audit logging, breach notification procedures. | Phase 5 roadmap explicitly includes "HIPAA BAA infrastructure"; current demo data is entirely synthetic (Marcus Chen); no real patient data ingested at any stage of development or demonstration |
+| App Store health app guidelines | Apple requires specific privacy labels for health data access. HealthKit entitlement requires Apple review. `Info.plist NSHealthShareUsageDescription` is already configured in `app.json`. | Already implemented per Apple guidelines; production release will require Apple Developer Program enrollment and App Store review; HealthKit entitlement requested at submission time |
 
 ---
 

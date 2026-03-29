@@ -25,6 +25,13 @@ log = get_logger(__name__)
 _BASE = "https://api.openalex.org"
 _TIMEOUT = 12
 _MAX_RESULTS = 10
+
+# Known preprint / non-peer-reviewed repository hostnames — reject any work
+# whose open-access URL or source display name contains these strings.
+_PREPRINT_MARKERS: frozenset[str] = frozenset({
+    "biorxiv", "medrxiv", "arxiv", "ssrn", "researchsquare",
+    "preprints.org", "chemrxiv", "psyarxiv", "osf.io", "zenodo",
+})
 _FIELDS = ",".join([
     "id",
     "title",
@@ -206,7 +213,11 @@ async def search_openalex(
     """
     params = {
         "search": query,
-        "filter": "has_abstract:true,type:article",
+        # Restrict to peer-reviewed journal articles only:
+        #   - type:article  → excludes books, datasets, dissertations
+        #   - primary_location.source.type:journal → excludes repositories (preprints)
+        #   - has_abstract:true → abstracts required for evidence grading
+        "filter": "has_abstract:true,type:article,primary_location.source.type:journal",
         "sort": "cited_by_count:desc",
         "per-page": min(max_results, 50),
         "select": _FIELDS,
@@ -225,8 +236,18 @@ async def search_openalex(
     works: list[OpenAlexWork] = []
     for raw in data.get("results") or []:
         work = _parse_work(raw)
-        if work and work.abstract:
-            works.append(work)
+        if not work or not work.abstract:
+            continue
+        # Secondary preprint guard: reject if journal name or OA URL contains a
+        # preprint marker (catches edge cases the API filter misses).
+        identifiers = " ".join(filter(None, [
+            work.journal or "",
+            work.open_access_url or "",
+        ])).lower()
+        if any(marker in identifiers for marker in _PREPRINT_MARKERS):
+            log.debug("openalex_preprint_rejected", title=work.title[:60])
+            continue
+        works.append(work)
 
     log.info(
         "openalex_search_complete",

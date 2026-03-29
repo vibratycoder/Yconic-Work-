@@ -62,7 +62,7 @@ export interface HealthProfile {
   conversation_count: number;
 }
 
-/** PubMed citation for evidence grounding. */
+/** Academic citation for evidence grounding (Google Scholar or PubMed). */
 export interface Citation {
   pmid: string;
   title: string;
@@ -70,6 +70,7 @@ export interface Citation {
   year: string;
   pubmed_url: string;
   display_summary: string;
+  source?: 'pubmed' | 'google_scholar';
 }
 
 /** Triage urgency level. */

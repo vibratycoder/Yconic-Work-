@@ -59,8 +59,7 @@ function groupFacts(facts: string[]): { cat: string; items: string[] }[] {
     if (!matched) learned.push(fact);
   }
 
-  const result: { cat: string; items: string[] }[] = [];
-  for (const [cat, items] of buckets) result.push({ cat, items });
+  const result: { cat: string; items: string[] }[] = Array.from(buckets.entries()).map(([cat, items]) => ({ cat, items }));
   if (learned.length > 0) result.push({ cat: 'Learned', items: learned });
   return result;
 }

@@ -41,7 +41,9 @@ export function ChatBubble({ message, onCitationPress }: ChatBubbleProps): React
               onPress={() => onCitationPress(citation)}
               activeOpacity={0.75}
             >
-              <Text style={styles.citationPmid}>PMID {citation.pmid}</Text>
+              <Text style={styles.citationPmid}>
+                {citation.source === 'google_scholar' ? `Scholar ${citation.pmid}` : `PMID ${citation.pmid}`}
+              </Text>
               <Text style={styles.citationTitle} numberOfLines={2}>
                 {citation.title}
               </Text>

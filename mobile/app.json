@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Pulse",
+    "name": "Sona Health",
     "slug": "pulse-health",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -14,8 +14,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.pulse.health",
       "infoPlist": {
-        "NSHealthShareUsageDescription": "Pulse reads your health data to provide personalized health insights.",
-        "NSHealthUpdateUsageDescription": "Pulse does not write health data."
+        "NSHealthShareUsageDescription": "Sona Health reads your health data to provide personalized health insights.",
+        "NSHealthUpdateUsageDescription": "Sona Health does not write health data."
       }
     },
     "plugins": [
@@ -25,7 +25,7 @@
         {
           "isClinicalHealthRecordsEnabled": true,
           "isMotionEnabled": false,
-          "NSHealthShareUsageDescription": "Pulse reads your health data to provide personalized health insights."
+          "NSHealthShareUsageDescription": "Sona Health reads your health data to provide personalized health insights."
         }
       ]
     ],

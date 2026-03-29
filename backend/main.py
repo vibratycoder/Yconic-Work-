@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(
-    title="Pulse API",
+    title="Sona Health API",
     version="0.1.0",
     description="AI health co-pilot backend",
     lifespan=lifespan,
@@ -313,6 +313,7 @@ async def chat(
             "authors": c.authors,
             "pubmed_url": c.pubmed_url,
             "display_summary": c.display_summary,
+            "source": c.source,
         }
         for c in citations
     ]
@@ -412,11 +413,13 @@ async def update_health_profile(user_id: str, profile: HealthProfile) -> HealthP
     if profile.user_id != user_id:
         raise HTTPException(status_code=400, detail="user_id mismatch")
     try:
-        saved = await upsert_profile(profile)
+        await upsert_profile(profile)
+        # Re-fetch so the response includes recent_labs from the lab_results table.
+        full = await get_profile(user_id)
     except Exception as exc:
         log.error("profile_update_failed", user_id=user_id, error=str(exc))
-        raise HTTPException(status_code=500, detail="Failed to update profile")
-    return saved
+        raise HTTPException(status_code=500, detail=f"Failed to update profile: {exc}")
+    return full or profile
 
 
 @app.post("/api/labs/scan")

@@ -33,7 +33,7 @@ export async function sendChatMessage(
       }),
     });
   } catch {
-    throw new Error('Unable to reach Pulse backend. Please ensure the server is running.');
+    throw new Error('Unable to reach Sona Health backend. Please ensure the server is running.');
   }
   if (!res.ok) {
     const detail = await res.json().then((d: { detail?: string }) => d.detail).catch(() => null);
@@ -106,7 +106,7 @@ export async function analyzeDocument(
       body: formData,
     });
   } catch {
-    throw new Error('Unable to reach Pulse backend. Please ensure the server is running.');
+    throw new Error('Unable to reach Sona Health backend. Please ensure the server is running.');
   }
   if (!res.ok) {
     const detail = await res.json().then((d: { detail?: string }) => d.detail).catch(() => null);

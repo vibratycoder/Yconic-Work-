@@ -23,6 +23,13 @@ from backend.utils.logger import get_logger
 log = get_logger(__name__)
 
 _BASE = "https://api.semanticscholar.org/graph/v1"
+
+# Preprint / non-peer-reviewed venue markers — reject papers whose journal
+# or open-access URL contains any of these strings.
+_PREPRINT_MARKERS: frozenset[str] = frozenset({
+    "biorxiv", "medrxiv", "arxiv", "ssrn", "researchsquare",
+    "preprints.org", "chemrxiv", "psyarxiv", "osf.io", "zenodo",
+})
 _FIELDS = ",".join([
     "title",
     "abstract",
@@ -189,8 +196,16 @@ async def search_semantic_scholar(
     papers: list[ScholarPaper] = []
     for raw in data.get("data") or []:
         paper = _parse_paper(raw)
-        if paper:
-            papers.append(paper)
+        if not paper:
+            continue
+        identifiers = " ".join(filter(None, [
+            paper.journal or "",
+            paper.open_access_url or "",
+        ])).lower()
+        if any(marker in identifiers for marker in _PREPRINT_MARKERS):
+            log.debug("semantic_scholar_preprint_rejected", title=paper.title[:60])
+            continue
+        papers.append(paper)
 
     log.info(
         "semantic_scholar_search_complete",

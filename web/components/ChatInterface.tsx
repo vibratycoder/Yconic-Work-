@@ -185,7 +185,7 @@ export function ChatInterface({ userId }: ChatInterfaceProps): React.ReactElemen
       setMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: err instanceof Error ? err.message : 'Unable to reach Pulse. Please ensure the backend is running.',
+        content: err instanceof Error ? err.message : 'Unable to reach Sona Health. Please ensure the backend is running.',
         created_at: new Date(),
       }]);
     } finally {
@@ -199,7 +199,7 @@ export function ChatInterface({ userId }: ChatInterfaceProps): React.ReactElemen
 
   /** Wipe message history and reset the conversation. */
   const handleClearChat = useCallback((): void => {
-    if (messages.length > 0 && !window.confirm('Clear all messages from this conversation?')) return;
+
     setMessages([]);
     setConversationId(undefined);
     localStorage.removeItem(DRAFT_KEY);
@@ -265,6 +265,15 @@ export function ChatInterface({ userId }: ChatInterfaceProps): React.ReactElemen
               onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; }}
             >
               Blood Work
+            </button>
+            <button
+              onClick={() => router.push('/health-tracker')}
+              className="px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200"
+              style={{ color: 'rgba(255,255,255,0.45)', border: '1px solid transparent', background: 'transparent' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; }}
+            >
+              Bio Tracker
             </button>
           </div>
 

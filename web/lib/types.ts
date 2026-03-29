@@ -90,6 +90,7 @@ export interface Citation {
   year: string;
   pubmed_url: string;
   display_summary: string;
+  source?: 'pubmed' | 'google_scholar';
 }
 
 /** A file attached to a chat message before sending. */

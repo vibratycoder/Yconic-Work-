@@ -35,7 +35,9 @@ export function CitationCard({ citation, index }: CitationCardProps): React.Reac
         onClick={() => setExpanded((e) => !e)}
       >
         <div className="flex-1 pr-2">
-          <span className="font-bold" style={{ color: '#38bdf8' }}>Source {index} · PMID {citation.pmid}</span>
+          <span className="font-bold" style={{ color: '#38bdf8' }}>
+            Source {index} · {citation.source === 'google_scholar' ? `Scholar ${citation.pmid}` : `PMID ${citation.pmid}`}
+          </span>
           <p className="mt-0.5 font-medium leading-snug" style={{ color: 'rgba(255,255,255,0.85)' }}>{citation.title}</p>
           <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
             {citation.journal} · {citation.year}
@@ -54,7 +56,7 @@ export function CitationCard({ citation, index }: CitationCardProps): React.Reac
             className="mt-2 inline-block font-medium hover:underline"
             style={{ color: '#38bdf8' }}
           >
-            View on PubMed
+            {citation.source === 'google_scholar' ? 'View on Google Scholar' : 'View on PubMed'}
           </a>
         </div>
       )}

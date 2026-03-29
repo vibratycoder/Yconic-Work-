@@ -83,7 +83,7 @@ export default function HomeScreen(): React.ReactElement {
 
         <View style={styles.quickActions}>
           <TouchableOpacity style={styles.askButton} onPress={() => router.push('/(app)/chat')}>
-            <Text style={styles.askButtonText}>Ask Pulse a question</Text>
+            <Text style={styles.askButtonText}>Ask Sona Health a question</Text>
             <Text style={styles.askButtonSub}>Evidence-based answers using your health data</Text>
           </TouchableOpacity>
         </View>

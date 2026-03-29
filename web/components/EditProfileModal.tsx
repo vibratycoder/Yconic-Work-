@@ -176,8 +176,12 @@ export function EditProfileModal({
     setSaving(true);
     setError(null);
     try {
+      // Explicitly construct payload — do NOT spread profile.recent_labs back.
+      // Labs live in a separate table and their computed fields (is_abnormal,
+      // display_value) cause Pydantic validation errors when round-tripped.
       const updated = await updateHealthProfile(userId, {
-        ...profile,
+        user_id: profile.user_id,
+        display_name: profile.display_name,
         age: age ? parseInt(age, 10) : null,
         sex: sex || null,
         height_cm: ftInToCm(heightFt, heightIn),
@@ -186,6 +190,9 @@ export function EditProfileModal({
         current_medications: medications,
         allergies,
         health_facts: healthFacts,
+        recent_labs: [],           // not managed here; backend re-fetches from lab_results
+        wearable_summary: profile.wearable_summary ?? undefined,
+        conversation_count: profile.conversation_count,
       });
       onSaved(updated);
     } catch (err) {
