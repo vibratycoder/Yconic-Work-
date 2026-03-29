@@ -18,20 +18,15 @@ from dataclasses import dataclass
 import aiohttp
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from backend.rag.sources._shared import format_authors, is_preprint
+from backend.utils.constants import TIMEOUT_SECONDS, PAPERS_PER_SOURCE
 from backend.utils.logger import get_logger
 
 log = get_logger(__name__)
 
 _BASE = "https://api.openalex.org"
-_TIMEOUT = 12
-_MAX_RESULTS = 10
-
-# Known preprint / non-peer-reviewed repository hostnames — reject any work
-# whose open-access URL or source display name contains these strings.
-_PREPRINT_MARKERS: frozenset[str] = frozenset({
-    "biorxiv", "medrxiv", "arxiv", "ssrn", "researchsquare",
-    "preprints.org", "chemrxiv", "psyarxiv", "osf.io", "zenodo",
-})
+_TIMEOUT = TIMEOUT_SECONDS
+_MAX_RESULTS = PAPERS_PER_SOURCE
 _FIELDS = ",".join([
     "id",
     "title",
@@ -87,11 +82,7 @@ class OpenAlexWork:
         Returns:
             Formatted author string.
         """
-        if not self.authors:
-            return "Unknown authors"
-        if len(self.authors) <= 3:
-            return ", ".join(self.authors)
-        return f"{self.authors[0]}, {self.authors[1]}, {self.authors[2]} et al."
+        return format_authors(self.authors)
 
     @property
     def source_label(self) -> str:
@@ -238,13 +229,8 @@ async def search_openalex(
         work = _parse_work(raw)
         if not work or not work.abstract:
             continue
-        # Secondary preprint guard: reject if journal name or OA URL contains a
-        # preprint marker (catches edge cases the API filter misses).
-        identifiers = " ".join(filter(None, [
-            work.journal or "",
-            work.open_access_url or "",
-        ])).lower()
-        if any(marker in identifiers for marker in _PREPRINT_MARKERS):
+        # Secondary preprint guard: catches edge cases the API filter misses.
+        if is_preprint(work.journal, work.open_access_url):
             log.debug("openalex_preprint_rejected", title=work.title[:60])
             continue
         works.append(work)

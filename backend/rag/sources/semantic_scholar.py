@@ -18,18 +18,13 @@ from dataclasses import dataclass, field
 import aiohttp
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from backend.rag.sources._shared import format_authors, is_preprint
+from backend.utils.constants import TIMEOUT_SECONDS, MAX_RETRIES, PAPERS_PER_SOURCE
 from backend.utils.logger import get_logger
 
 log = get_logger(__name__)
 
 _BASE = "https://api.semanticscholar.org/graph/v1"
-
-# Preprint / non-peer-reviewed venue markers — reject papers whose journal
-# or open-access URL contains any of these strings.
-_PREPRINT_MARKERS: frozenset[str] = frozenset({
-    "biorxiv", "medrxiv", "arxiv", "ssrn", "researchsquare",
-    "preprints.org", "chemrxiv", "psyarxiv", "osf.io", "zenodo",
-})
 _FIELDS = ",".join([
     "title",
     "abstract",
@@ -43,8 +38,8 @@ _FIELDS = ",".join([
     "journal",
     "publicationDate",
 ])
-_TIMEOUT = 12
-_MAX_RESULTS = 10
+_TIMEOUT = TIMEOUT_SECONDS
+_MAX_RESULTS = PAPERS_PER_SOURCE
 
 
 @dataclass
@@ -88,11 +83,7 @@ class ScholarPaper:
         Returns:
             Formatted author string.
         """
-        if not self.authors:
-            return "Unknown authors"
-        if len(self.authors) <= 3:
-            return ", ".join(self.authors)
-        return f"{self.authors[0]}, {self.authors[1]}, {self.authors[2]} et al."
+        return format_authors(self.authors)
 
     @property
     def source_label(self) -> str:
@@ -198,11 +189,7 @@ async def search_semantic_scholar(
         paper = _parse_paper(raw)
         if not paper:
             continue
-        identifiers = " ".join(filter(None, [
-            paper.journal or "",
-            paper.open_access_url or "",
-        ])).lower()
-        if any(marker in identifiers for marker in _PREPRINT_MARKERS):
+        if is_preprint(paper.journal, paper.open_access_url):
             log.debug("semantic_scholar_preprint_rejected", title=paper.title[:60])
             continue
         papers.append(paper)
