@@ -17,12 +17,12 @@ from backend.evidence.query_builder import classify_health_domain
 from backend.evidence.citation_formatter import format_citation_list
 from backend.intake.lab_ocr import extract_lab_results_from_image, extract_lab_results_from_pdf
 from backend.intake.document_classifier import classify_document
-from backend.intake.healthkit_sync import process_healthkit_payload
 from backend.features.lab_rater import rate_lab_results
 from backend.features.visit_prep import generate_visit_summary
 from backend.features.drug_interactions import check_drug_interactions
 from backend.models.health_profile import HealthProfile, Medication
 from backend.rag.health_rag import retrieve_health_evidence, inject_evidence_into_system_prompt
+from backend.utils.constants import CLAUDE_SONNET, MAX_TOKENS_DEFAULT
 from backend.utils.logger import get_logger
 
 load_dotenv()
@@ -118,12 +118,6 @@ class ChatResponse(BaseModel):
     triage_level: str = "informational"
 
 
-class HealthkitPayload(BaseModel):
-    """Raw HealthKit payload from mobile app."""
-    user_id: str
-    data: dict
-
-
 class DrugCheckRequest(BaseModel):
     """
     Drug interaction check request.
@@ -139,6 +133,29 @@ class DrugCheckRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+async def _require_profile(user_id: str) -> HealthProfile:
+    """
+    Load a HealthProfile from Supabase, raising HTTP errors on failure.
+
+    Args:
+        user_id: Supabase auth user ID.
+
+    Returns:
+        The user's HealthProfile.
+
+    Raises:
+        HTTPException: 500 if DB lookup raises, 404 if profile does not exist.
+    """
+    try:
+        profile = await get_profile(user_id)
+    except Exception as exc:
+        log.error("profile_load_failed", user_id=user_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Failed to load profile")
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return profile
+
 
 def _build_attachment_prompt(user_text: str, attachments: list[AttachmentPayload]) -> str:
     """
@@ -290,8 +307,8 @@ async def chat(
     try:
         client = anthropic.AsyncAnthropic()
         response = await client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=1024,
+            model=CLAUDE_SONNET,
+            max_tokens=MAX_TOKENS_DEFAULT,
             system=system_prompt,
             messages=messages,
         )
@@ -629,30 +646,6 @@ async def analyze_document(
     }
 
 
-@app.post("/api/healthkit/sync")
-async def sync_healthkit(payload: HealthkitPayload) -> dict:
-    """
-    Sync HealthKit data from the mobile app.
-
-    Processes the payload, computes 7-day averages, and updates the
-    user's wearable summary in Supabase.
-
-    Args:
-        payload: HealthkitPayload with user_id and raw HealthKit data dict
-
-    Returns:
-        Dict with computed WearableSummary.
-
-    Raises:
-        HTTPException: 500 on processing or Supabase failure.
-    """
-    try:
-        summary = await process_healthkit_payload(payload.user_id, payload.data)
-        return {"summary": summary.model_dump()}
-    except Exception as exc:
-        log.error("healthkit_sync_failed", user_id=payload.user_id, error=str(exc))
-        raise HTTPException(status_code=500, detail="HealthKit sync failed")
-
 
 @app.get("/api/visit-prep/{user_id}")
 async def visit_prep(user_id: str) -> dict:
@@ -668,13 +661,7 @@ async def visit_prep(user_id: str) -> dict:
     Raises:
         HTTPException: 404 if profile not found, 500 on generation failure.
     """
-    try:
-        profile = await get_profile(user_id)
-    except Exception as exc:
-        log.error("visit_prep_profile_failed", user_id=user_id, error=str(exc))
-        raise HTTPException(status_code=500, detail="Failed to load profile")
-    if profile is None:
-        raise HTTPException(status_code=404, detail="Profile not found")
+    profile = await _require_profile(user_id)
     try:
         summary = await generate_visit_summary(profile)
         return summary.model_dump()
@@ -697,13 +684,7 @@ async def drug_interaction_check(request: DrugCheckRequest) -> dict:
     Raises:
         HTTPException: 404 if profile not found, 500 on DB error.
     """
-    try:
-        profile = await get_profile(request.user_id)
-    except Exception as exc:
-        log.error("drug_check_profile_failed", user_id=request.user_id, error=str(exc))
-        raise HTTPException(status_code=500, detail="Failed to load profile")
-    if profile is None:
-        raise HTTPException(status_code=404, detail="Profile not found")
+    profile = await _require_profile(request.user_id)
     warnings = check_drug_interactions(profile.current_medications, request.new_drug)
     return {"warnings": warnings, "new_drug": request.new_drug}
 

@@ -5,17 +5,6 @@ from backend.utils.logger import get_logger
 
 log = get_logger(__name__)
 
-# Reference: clinical urgency thresholds beyond normal flags
-CRITICAL_THRESHOLDS: dict[str, dict[str, float]] = {
-    "Hemoglobin": {"critical_low": 7.0, "critical_high": 20.0},
-    "Potassium": {"critical_low": 2.5, "critical_high": 6.5},
-    "Sodium": {"critical_low": 120.0, "critical_high": 160.0},
-    "Glucose": {"critical_low": 40.0, "critical_high": 500.0},
-    "Creatinine": {"critical_high": 10.0},
-    "INR": {"critical_high": 5.0},
-    "Troponin": {"critical_high": 0.04},
-}
-
 
 def interpret_lab_result(lab: LabResult) -> str:
     """

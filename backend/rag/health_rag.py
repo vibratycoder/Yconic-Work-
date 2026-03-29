@@ -35,15 +35,10 @@ from backend.rag.query_expander import expand_query
 from backend.rag.reranker import RankedPaper, rank_papers
 from backend.rag.sources.openalex import search_openalex
 from backend.rag.sources.semantic_scholar import search_semantic_scholar
+from backend.utils.constants import RAG_TOP_K, PAPERS_PER_SOURCE
 from backend.utils.logger import get_logger
 
 log = get_logger(__name__)
-
-# How many candidate papers per source per query  (3 queries × 2 sources × N)
-_PAPERS_PER_SOURCE = 10
-
-# Final top-N passed to context builder
-_MAX_RANKED = 10
 
 
 @dataclass
@@ -69,7 +64,7 @@ class HealthRAGResult:
 async def retrieve_health_evidence(
     question: str,
     patient_context: str = "",
-    max_results: int = _MAX_RANKED,
+    max_results: int = RAG_TOP_K,
 ) -> HealthRAGResult:
     """
     Run the full health RAG pipeline for a single question.
@@ -95,11 +90,11 @@ async def retrieve_health_evidence(
     # ── Step 2: parallel multi-source retrieval ────────────────────────────
     # Build one coroutine per (source, query) pair
     ss_tasks = [
-        search_semantic_scholar(q, max_results=_PAPERS_PER_SOURCE)
+        search_semantic_scholar(q, max_results=PAPERS_PER_SOURCE)
         for q in expanded_queries
     ]
     oa_tasks = [
-        search_openalex(q, max_results=_PAPERS_PER_SOURCE)
+        search_openalex(q, max_results=PAPERS_PER_SOURCE)
         for q in expanded_queries
     ]
 

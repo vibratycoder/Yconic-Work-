@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import anthropic
 
+from backend.utils.constants import CLAUDE_HAIKU, MAX_TOKENS_QUERY_EXPAND
 from backend.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -62,8 +63,8 @@ async def expand_query(
     try:
         client = anthropic.AsyncAnthropic()
         response = await client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=256,
+            model=CLAUDE_HAIKU,
+            max_tokens=MAX_TOKENS_QUERY_EXPAND,
             system=_EXPANSION_SYSTEM,
             messages=[{"role": "user", "content": user_content}],
         )

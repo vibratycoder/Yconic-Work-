@@ -3,6 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 import anthropic
 from backend.models.health_profile import HealthProfile
+from backend.utils.constants import CLAUDE_SONNET, MAX_TOKENS_VISIT_PREP
 from backend.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -60,8 +61,8 @@ async def generate_visit_summary(profile: HealthProfile) -> VisitSummary:
     client = anthropic.AsyncAnthropic()
 
     response = await client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
+        model=CLAUDE_SONNET,
+        max_tokens=MAX_TOKENS_VISIT_PREP,
         system=VISIT_PREP_SYSTEM,
         messages=[{
             "role": "user",
