@@ -57,7 +57,7 @@ Health summary hub showing the user's current status at a glance, with quick nav
 
 1. **Greeting** — Time-of-day greeting (`Good morning/afternoon/evening`) with the user's `display_name`
 2. **HealthSummaryCard** — Reusable component showing conditions count and medications count from the profile
-3. **Ask Sona Health button** — Primary CTA that navigates to `/(app)/chat`
+3. **Ask Sana Health button** — Primary CTA that navigates to `/(app)/chat`
 4. **Abnormal Labs section** — Shows up to 3 `LabCard` components for results with `status === 'high' | 'low' | 'critical'`; a "See all N abnormal results" link navigates to `/(app)/labs` when there are more than 3
 
 ### Design Tokens Used
@@ -78,7 +78,7 @@ Health summary hub showing the user's current status at a glance, with quick nav
 
 ### Purpose
 
-Full conversational interface with Sona Health. Supports multi-turn conversation, displays citations, and shows a triage-level indicator.
+Full conversational interface with Sana Health. Supports multi-turn conversation, displays citations, and shows a triage-level indicator.
 
 ### Key State Variables
 

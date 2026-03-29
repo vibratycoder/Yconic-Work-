@@ -1,6 +1,6 @@
-# Sona Health — Process Documentation
+# Sana Health — Process Documentation
 
-Documentation for every major process in the Sona Health backend, web, and mobile stack.
+Documentation for every major process in the Sana Health backend and web stack.
 
 ## Processes
 
@@ -15,28 +15,24 @@ Documentation for every major process in the Sona Health backend, web, and mobil
 | [rag-evidence.md](rag-evidence.md) | Multi-source academic evidence retrieval | `POST /api/health-rag/query` |
 | [drug-interactions.md](drug-interactions.md) | Drug interaction checking | `POST /api/drug-check` |
 | [visit-prep.md](visit-prep.md) | Doctor visit summary generation | `GET /api/visit-prep/{user_id}` |
-| [healthkit-sync.md](healthkit-sync.md) | Apple HealthKit wearable data sync | `POST /api/healthkit/sync` |
 | [authentication.md](authentication.md) | Auth flow and onboarding | Supabase auth + onboarding screens |
 
 ## Architecture overview
 
 ```
-┌─────────────┐   ┌──────────────┐   ┌─────────────────┐
-│  Next.js 14 │   │  Expo RN iOS │   │  FastAPI backend │
-│   (web)     │   │  (mobile)    │   │  Python 3.12     │
-└──────┬──────┘   └──────┬───────┘   └────────┬────────┘
-       │                 │                     │
-       └────────────────►│◄────────────────────┘
-                         │
-                  ┌──────▼──────┐
-                  │  Supabase   │
-                  │  Postgres   │
-                  │  + Auth     │
-                  └─────────────┘
+┌─────────────────┐        ┌─────────────────┐
+│   Next.js 14    │        │  FastAPI backend │
+│   (web)         │◄──────►│  Python 3.11+    │
+└─────────────────┘        └────────┬────────┘
+                                    │
+                             ┌──────▼──────┐
+                             │  Supabase   │
+                             │  Postgres   │
+                             │  + Auth     │
+                             └─────────────┘
 ```
 
 **External APIs used:**
 - Anthropic Claude API (Sonnet 4.6 for chat/vision, Haiku 4.5 for fact extraction)
 - PubMed E-utilities / Google Scholar (citations)
 - Semantic Scholar + OpenAlex (RAG evidence retrieval)
-- Apple HealthKit (iOS wearable data)

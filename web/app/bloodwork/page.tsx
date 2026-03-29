@@ -786,7 +786,7 @@ export default function BloodworkPage(): React.ReactElement {
             </div>
             <p className="text-base font-semibold text-white/70 mb-1">No lab results yet</p>
             <p className="text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>
-              Upload a bloodwork report above — Sona Health will classify it, extract the values,
+              Upload a bloodwork report above — Sana Health will classify it, extract the values,
               and rate each result against your personalised normal ranges.
             </p>
             <button

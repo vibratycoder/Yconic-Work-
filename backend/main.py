@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(
-    title="Sona Health API",
+    title="Sana Health API",
     version="0.1.0",
     description="AI health co-pilot backend",
     lifespan=lifespan,

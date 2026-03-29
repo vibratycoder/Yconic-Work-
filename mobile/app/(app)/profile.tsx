@@ -825,7 +825,7 @@ export default function ProfileScreen(): React.ReactElement {
             </Text>
             <Text style={styles.pageSub}>
               {profile.conversation_count}{' '}
-              conversation{profile.conversation_count !== 1 ? 's' : ''} with Sona Health
+              conversation{profile.conversation_count !== 1 ? 's' : ''} with Sana Health
             </Text>
           </View>
         </View>

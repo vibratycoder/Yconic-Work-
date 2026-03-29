@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Sana Help — AI Health Co-Pilot',
+  title: 'Sana Health — AI Health Co-Pilot',
   description: 'Personalized, evidence-based health guidance grounded in peer-reviewed research.',
 };
 

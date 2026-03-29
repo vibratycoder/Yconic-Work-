@@ -1,6 +1,6 @@
 # Profile Management
 
-The `HealthProfile` is the core data object injected into every Claude prompt. It is created at onboarding and updated by the edit modal, conversation learning, and HealthKit sync.
+The `HealthProfile` is the core data object injected into every Claude prompt. It is created at onboarding and updated by the edit modal and conversation learning.
 
 ## Data model
 
@@ -64,12 +64,12 @@ Check GET /api/profile/{user_id}
       ├──► redirect to /onboarding
       │
       ▼
-Onboarding form (5 steps on web / 4 on mobile)
+Onboarding form (5 steps)
   Step 1 — Your basics (age, sex, height, weight)
   Step 2 — Medical conditions (multi-select + custom)
   Step 3 — Current medications (name, dose, frequency)
   Step 4 — Allergies (multi-select + custom)
-  Step 5 — Lifestyle & goals (web only: exercise, sleep, smoking, alcohol, health goals)
+  Step 5 — Lifestyle & goals (exercise, sleep, smoking, alcohol, health goals)
       │
       ▼
 POST /api/profile  →  upsert_profile()  →  Supabase
@@ -78,8 +78,7 @@ POST /api/profile  →  upsert_profile()  →  Supabase
 Redirect to home / chat
 ```
 
-**Web:** `web/app/onboarding/page.tsx`
-**Mobile:** `mobile/app/(auth)/onboarding.tsx`
+**File:** `web/app/onboarding/page.tsx`
 
 ## Edit profile modal
 
@@ -104,5 +103,3 @@ On save: `PUT /api/profile/{user_id}`. After upsert, the endpoint re-fetches the
 | `web/app/onboarding/page.tsx` | Web onboarding form |
 | `web/components/EditProfileModal.tsx` | Web edit modal |
 | `web/components/HealthProfileSidebar.tsx` | Sidebar display |
-| `mobile/app/(auth)/onboarding.tsx` | Mobile onboarding form |
-| `mobile/app/(app)/profile.tsx` | Mobile profile screen |

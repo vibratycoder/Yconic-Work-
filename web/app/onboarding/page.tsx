@@ -100,7 +100,7 @@ const HEALTH_GOALS = [
 ];
 
 const STEPS = [
-  { id: 1, title: 'Your basics', subtitle: 'Helps Sona Health personalise every response' },
+  { id: 1, title: 'Your basics', subtitle: 'Helps Sana Health personalise every response' },
   { id: 2, title: 'Medical conditions', subtitle: 'Select all that apply' },
   { id: 3, title: 'Current medications', subtitle: 'Include dose and frequency' },
   { id: 4, title: 'Allergies', subtitle: 'Drug and food allergies' },
@@ -671,7 +671,7 @@ function StepLifestyle({ data, update, toggle }: StepLifestyleProps): React.Reac
       <DarkSelectGroup label="Alcohol use" options={ALCOHOL_OPTIONS}
         value={data.alcohol_use} onChange={(v) => update('alcohol_use', v)} />
       <div>
-        <label className="field-label mb-2 block">What do you want Sana Help to help you with?</label>
+        <label className="field-label mb-2 block">What do you want Sana Health to help you with?</label>
         <div className="grid grid-cols-1 gap-2">
           {HEALTH_GOALS.map((g) => (
             <DarkCheckChip key={g} label={g} checked={data.health_goals.includes(g)}

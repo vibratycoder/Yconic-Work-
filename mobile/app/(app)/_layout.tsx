@@ -57,7 +57,7 @@ export default function AppLayout(): React.ReactElement {
       <Tabs.Screen
         name="chat"
         options={{
-          title: 'Ask Sona Health',
+          title: 'Ask Sana Health',
           tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <Ionicons name="chatbubble-outline" color={color} size={size} />
           ),

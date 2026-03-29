@@ -6,8 +6,8 @@ Two intake paths for bloodwork — camera scan and document upload — convergin
 
 | Endpoint | Source | Input |
 |----------|--------|-------|
-| `POST /api/labs/scan` | Mobile camera | `user_id` (form) + `file` (image) |
-| `POST /api/documents/analyze` | Web/mobile upload | `user_id` (form) + `file` (image or PDF) |
+| `POST /api/labs/scan` | Web upload | `user_id` (form) + `file` (image) |
+| `POST /api/documents/analyze` | Web upload | `user_id` (form) + `file` (image or PDF) |
 
 ## Path 1 — Camera scan (`/api/labs/scan`)
 
@@ -113,8 +113,7 @@ Reference ranges are defined per-test in `backend/features/lab_reference_ranges.
 
 ## UI
 
-- **Web:** `web/app/bloodwork/page.tsx` — drag-and-drop upload, results grid with High/Normal/Low badges
-- **Mobile:** `mobile/app/(app)/labs.tsx` — scan button (camera), import button (file picker), `LabCard` component per result
+- **Web:** `web/app/bloodwork/page.tsx` — drag-and-drop upload, results grid with High/Normal/Low badges, Table/Chart toggle
 
 ## Files
 
@@ -126,5 +125,3 @@ Reference ranges are defined per-test in `backend/features/lab_reference_ranges.
 | `backend/features/lab_reference_ranges.py` | Reference range definitions |
 | `backend/main.py` | Route handlers |
 | `web/app/bloodwork/page.tsx` | Web upload UI |
-| `mobile/app/(app)/labs.tsx` | Mobile labs screen |
-| `mobile/components/LabCard.tsx` | Per-result display card |

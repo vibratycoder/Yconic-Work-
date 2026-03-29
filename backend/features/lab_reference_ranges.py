@@ -1,7 +1,26 @@
-"""Personalized lab reference ranges adjusted for age, sex, and BMI."""
+"""
+Personalized lab reference ranges adjusted for age, sex, and BMI.
+
+Primary data source: backend/data/scraped_ranges.py (peer-reviewed literature).
+Fallback: embedded values below (retained for tests not yet in scraped_ranges).
+Run `python -m backend.agents.scrape_agent` to refresh scraped_ranges from live
+literature searches.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+# ---------------------------------------------------------------------------
+# Load peer-reviewed scraped ranges as primary source
+# ---------------------------------------------------------------------------
+
+try:
+    from backend.data.scraped_ranges import BASE as _SCRAPED_BASE, SEX_RANGES as _SCRAPED_SEX
+    _SCRAPED_AVAILABLE = True
+except ImportError:
+    _SCRAPED_BASE: dict = {}
+    _SCRAPED_SEX: dict = {}
+    _SCRAPED_AVAILABLE = False
 
 
 @dataclass(frozen=True)
@@ -22,10 +41,21 @@ class ReferenceRange:
     note: str = ""
 
 
+def _scraped_to_ref(scraped: object) -> ReferenceRange:
+    """Convert a ScrapedRange object to a ReferenceRange."""
+    return ReferenceRange(
+        low=scraped.low,   # type: ignore[attr-defined]
+        high=scraped.high,  # type: ignore[attr-defined]
+        unit=getattr(scraped, "unit", ""),
+        note=getattr(scraped, "note", ""),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Base reference ranges — sex-neutral adult defaults
 # These are overridden by sex- and age-specific adjustments below.
-# Sources: LabCorp / Quest reference intervals, ARUP Laboratories.
+# Primary source: scraped_ranges.py (peer-reviewed studies).
+# Fallback: LabCorp / Quest reference intervals, ARUP Laboratories.
 # ---------------------------------------------------------------------------
 
 _BASE: dict[str, ReferenceRange] = {
@@ -402,14 +432,16 @@ def get_personalized_range(
     """
     Return a personalized reference range for a lab test.
 
-    Applies adjustments in priority order:
+    Resolution order (highest priority first):
     1. Age-specific special cases (eGFR, PSA, BUN, ESR)
-    2. Sex-specific overrides from ``_SEX_RANGES``
-    3. Base neutral range from ``_BASE``
+    2. Peer-reviewed scraped sex-specific ranges (scraped_ranges.SEX_RANGES)
+    3. Peer-reviewed scraped base ranges (scraped_ranges.BASE)
+    4. Embedded sex-specific overrides (``_SEX_RANGES``)
+    5. Embedded base range (``_BASE``)
+    6. Case-insensitive fallback across all embedded ranges
 
     A BMI above 30 expands the Triglycerides upper bound to 200 mg/dL and
-    the fasting Glucose upper bound to 105 mg/dL to reflect adjusted clinical
-    expectations in obese patients per ATP III / ADA guidance.
+    the fasting Glucose upper bound to 105 mg/dL per ATP III / ADA guidance.
 
     Args:
         test_name: Exact test name as returned by the OCR extractor.
@@ -419,7 +451,7 @@ def get_personalized_range(
         height_cm: Height in centimetres (used for BMI calculation).
 
     Returns:
-        ReferenceRange if the test is in the lookup table, else None.
+        ReferenceRange if the test is in any lookup table, else None.
     """
     # Normalise sex string
     sex_key: str | None = None
@@ -431,7 +463,7 @@ def get_personalized_range(
 
     bmi = _compute_bmi(weight_kg, height_cm)
 
-    # --- Special age-driven dynamic ranges ---
+    # --- 1. Age-driven dynamic ranges (same logic regardless of data source) ---
     if test_name in ("eGFR", "GFR") and age is not None:
         return _egfr_range(age)
 
@@ -444,14 +476,26 @@ def get_personalized_range(
     if test_name in ("ESR", "Erythrocyte Sedimentation Rate") and age is not None:
         return _esr_range(age, sex)
 
-    # --- Sex-specific ranges ---
-    if sex_key and test_name in _SEX_RANGES:
-        base = _SEX_RANGES[test_name].get(sex_key)
-    else:
-        base = _BASE.get(test_name)
+    # --- 2 & 3. Scraped (peer-reviewed) ranges — primary source ---
+    base: ReferenceRange | None = None
 
+    if _SCRAPED_AVAILABLE:
+        if sex_key and test_name in _SCRAPED_SEX:
+            scraped = _SCRAPED_SEX[test_name].get(sex_key)
+            if scraped is not None:
+                base = _scraped_to_ref(scraped)
+        if base is None and test_name in _SCRAPED_BASE:
+            base = _scraped_to_ref(_SCRAPED_BASE[test_name])
+
+    # --- 4 & 5. Fallback to embedded ranges ---
     if base is None:
-        # Try case-insensitive fallback
+        if sex_key and test_name in _SEX_RANGES:
+            base = _SEX_RANGES[test_name].get(sex_key)
+        if base is None:
+            base = _BASE.get(test_name)
+
+    # --- 6. Case-insensitive embedded fallback ---
+    if base is None:
         lower = test_name.lower()
         for key, val in _BASE.items():
             if key.lower() == lower:
@@ -461,7 +505,7 @@ def get_personalized_range(
     if base is None:
         return None
 
-    # --- BMI adjustments (high BMI relaxes metabolic thresholds slightly) ---
+    # --- BMI adjustments ---
     if bmi is not None and bmi > 30.0:
         if test_name in ("Triglycerides",) and base.high is not None:
             base = ReferenceRange(base.low, 200.0, base.unit, "BMI-adjusted (obese)")

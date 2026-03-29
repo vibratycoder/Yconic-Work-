@@ -29,7 +29,7 @@ The flow is implemented in two platforms:
 
 **Web title:** Welcome screen with app intro + `OnboardingData` form fields
 
-**Mobile title:** "Welcome to Sona Health"
+**Mobile title:** "Welcome to Sana Health"
 
 ### Fields Collected
 

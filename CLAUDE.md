@@ -1,7 +1,7 @@
 # Pulse — Claude Code Configuration
 
 ## Project
-AI health co-pilot. FastAPI backend + Expo React Native mobile + Next.js 14 web.
+AI health co-pilot. FastAPI backend + Next.js 14 web.
 
 ## Non-negotiables
 - Emergency triage (check_emergency) runs BEFORE every LLM call — no exceptions
@@ -15,7 +15,6 @@ check_emergency("stomach hurts a little") → must return None
 
 ## Tech stack
 - Backend: FastAPI, Pydantic v2, Anthropic SDK, aiohttp, tenacity, lxml, supabase-py
-- Mobile: Expo SDK 51, React Native, TypeScript, react-native-health
 - Web: Next.js 14, TypeScript, Tailwind CSS
 - DB: Supabase (Postgres + RLS + auth)
 

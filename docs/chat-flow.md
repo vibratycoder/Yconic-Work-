@@ -88,7 +88,6 @@ For attachments: multimodal content array with image/document blocks followed by
 | `backend/health/updater.py` | Background fact extraction |
 | `backend/features/triage.py` | Triage level classification |
 | `web/components/ChatInterface.tsx` | Web UI |
-| `mobile/app/(app)/chat.tsx` | Mobile UI |
 
 ## Response model
 

@@ -1,6 +1,6 @@
 # Profile Learning from Conversations
 
-After every chat response, Sona Health automatically extracts new health facts from the conversation and appends them to the user's profile. This runs as a non-blocking background task.
+After every chat response, Sana Health automatically extracts new health facts from the conversation and appends them to the user's profile. This runs as a non-blocking background task.
 
 ## Trigger
 

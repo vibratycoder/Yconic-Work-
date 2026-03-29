@@ -1,5 +1,5 @@
 /**
- * Chat screen — primary Sona Health conversation UI.
+ * Chat screen — primary Sana Health conversation UI.
  *
  * Matches the web ChatInterface dark design system exactly:
  * - Background: #04090f
@@ -119,7 +119,7 @@ function EmptyState(): React.ReactElement {
       <View style={styles.emptyLogo}>
         <Text style={styles.emptyLogoGlyph}>〜</Text>
       </View>
-      <Text style={styles.emptyTitle}>Ask Sona Health</Text>
+      <Text style={styles.emptyTitle}>Ask Sana Health</Text>
       <Text style={styles.emptySubtitle}>
         Answers grounded in peer-reviewed research, personalised to your health profile.
       </Text>
@@ -345,7 +345,7 @@ export default function ChatScreen(): React.ReactElement {
       const errorText =
         error instanceof Error
           ? error.message
-          : 'Unable to reach Sona Health right now. Please try again.';
+          : 'Unable to reach Sana Health right now. Please try again.';
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -375,7 +375,7 @@ export default function ChatScreen(): React.ReactElement {
           <View style={styles.headerLogo}>
             <Text style={styles.headerLogoGlyph}>〜</Text>
           </View>
-          <Text style={styles.headerTitle}>Sona Health</Text>
+          <Text style={styles.headerTitle}>Sana Health</Text>
         </View>
 
         <View style={styles.headerRight}>

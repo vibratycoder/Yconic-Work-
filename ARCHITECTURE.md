@@ -32,11 +32,6 @@ User question
 Tables: health_profiles, lab_results, conversations, symptom_logs, documents
 All tables have RLS enabled — users access only their own data
 
-## Mobile (Expo / React Native)
-- iOS primary, HealthKit integration
-- Screens: onboarding, home, chat, labs, profile
-- Components: ChatBubble, LabCard, CitationSheet, TriageAlert
-
 ## Web (Next.js 14)
 - Demo surface
 - HealthProfileSidebar always visible during chat

@@ -27,7 +27,7 @@ import { HealthProfile, Medication } from '../../lib/types';
 type OnboardingStep = 0 | 1 | 2 | 3 | 4;
 
 const STEP_TITLES: Record<OnboardingStep, string> = {
-  0: 'Welcome to Sona Health',
+  0: 'Welcome to Sana Health',
   1: 'Your health background',
   2: 'Current medications',
   3: 'Lifestyle & habits',

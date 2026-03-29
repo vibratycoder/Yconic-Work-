@@ -39,7 +39,7 @@ export default function HomePage(): React.ReactElement {
       <div className="flex h-screen items-center justify-center" style={{ background: 'radial-gradient(ellipse at center, #071e3d, #04090f)' }}>
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-sky-500 border-t-transparent" />
-          <p className="text-sm text-gray-400">Loading Sana Help...</p>
+          <p className="text-sm text-gray-400">Loading Sana Health...</p>
         </div>
       </div>
     );

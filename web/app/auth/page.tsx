@@ -155,7 +155,7 @@ export default function AuthPage(): React.ReactElement {
               />
             </svg>
           </div>
-          <h1 className="text-3xl font-extrabold text-white">Sana Help</h1>
+          <h1 className="text-3xl font-extrabold text-white">Sana Health</h1>
           <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>Your AI health co-pilot</p>
         </div>
 
@@ -233,7 +233,7 @@ export default function AuthPage(): React.ReactElement {
         </div>
 
         <p className="mt-6 text-center text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>
-          Sana Help is not a substitute for professional medical advice.
+          Sana Health is not a substitute for professional medical advice.
         </p>
       </div>
     </div>

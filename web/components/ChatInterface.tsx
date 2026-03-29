@@ -185,7 +185,7 @@ export function ChatInterface({ userId }: ChatInterfaceProps): React.ReactElemen
       setMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: err instanceof Error ? err.message : 'Unable to reach Sona Health. Please ensure the backend is running.',
+        content: err instanceof Error ? err.message : 'Unable to reach Sana Health. Please ensure the backend is running.',
         created_at: new Date(),
       }]);
     } finally {
@@ -511,7 +511,7 @@ export function ChatInterface({ userId }: ChatInterfaceProps): React.ReactElemen
           </div>
 
           <p className="mt-2 text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
-            Enter to send · Shift+Enter for new line · Images up to 5 MB · PDFs up to 32 MB · Sana Help is not a substitute for professional medical advice
+            Enter to send · Shift+Enter for new line · Images up to 5 MB · PDFs up to 32 MB · Sana Health is not a substitute for professional medical advice
           </p>
         </div>
       </div>
