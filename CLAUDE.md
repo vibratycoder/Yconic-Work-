@@ -43,7 +43,7 @@ A full-screen chat interface with:
 
 **Step 2 — Load health profile.** The backend calls get_profile() which queries the health_profiles table in Supabase, parses the user's medications, wearable summary, and member_since date, then separately queries the lab_results table (most recent 20, ordered by date_collected DESC) and attaches them to the profile. If the profile can't be loaded, chat continues with a blank default profile.
 
-**Step 3 — Classify health domain.** classify_health_domain() in evidence/query_builder.py scans the message for keywords across 9 medical domains (cardiology, endocrinology, neurology, pulmonology, gastroenterology, nephrology, hematology, oncology, mental_health). This determines which MeSH terms to use in the PubMed search.
+**Step 3 — Classify health domain.** classify_health_domain() in evidence/query_builder.py scans the message for keywords across 10 medical domains (cardiology, endocrinology, neurology, pulmonology, gastroenterology, nephrology, hematology, oncology, mental_health, orthopedics) plus a general fallback. This determines which MeSH terms to use in the PubMed search.
 
 **Step 4 — Fetch citations.** get_citations_for_question() in evidence/pubmed.py builds a PubMed query with the classified domain's MeSH terms and a 5-year recency filter, sends it to PubMed E-utilities esearch API to get PMIDs, then fetches abstracts via efetch. The results are parsed from XML into Citation objects with pmid, title, journal, year, authors, abstract, and pubmed_url.
 
@@ -118,7 +118,7 @@ The frontend sends only the editable fields to PUT /api/profile/{user_id} using 
 
 ## How Drug Interaction Checking Works (POST /api/drug-check)
 
-The user submits a new drug name. The backend loads their profile to get their current medications list. check_drug_interactions() in features/drug_interactions.py checks the new drug against 8 known high-risk interaction pairs (warfarin+aspirin, MAOI+SSRI, lithium+NSAIDs, methotrexate+NSAIDs, digoxin+amiodarone, ACE inhibitor+potassium-sparing diuretic, fluoroquinolone+antacid, statin+fibrate). Matching is bidirectional (checks both directions) and uses substring matching so brand names work. Returns a list of warning strings.
+The user submits a new drug name. The backend loads their profile to get their current medications list. check_drug_interactions() in features/drug_interactions.py checks the new drug against 19 known high-risk interaction pairs covering 8 drug categories: warfarin+NSAIDs (3 pairs), MAOI+SSRI, lithium+NSAIDs (2 pairs), methotrexate+NSAIDs (2 pairs), digoxin+amiodarone, ACE inhibitors+potassium-sparing diuretics (3 pairs), fluoroquinolones+antacids (2 pairs), statins+fibrates (3 pairs), metformin+alcohol, and SSRI+tramadol. Matching is bidirectional (checks both directions) and uses substring matching so brand names work. Returns a list of warning strings.
 
 ---
 
