@@ -181,6 +181,26 @@ async def _load_profile_or_default(user_id: str) -> HealthProfile:
     return profile or HealthProfile(user_id=user_id, display_name="")
 
 
+def _filter_cited(citations: list, answer: str) -> list:
+    """
+    Return only citations whose PMID or Scholar ID appears in the answer text.
+
+    Claude is prompted to cite PMIDs inline (e.g. "PMID 12345678"). This
+    ensures the frontend only shows sources the model actually referenced,
+    so every displayed card has a matching passage in the response.
+
+    Args:
+        citations: All Citation objects fetched for this question.
+        answer: Claude's complete response text.
+
+    Returns:
+        Subset of citations whose identifier appears in the answer.
+        Falls back to all citations if none were explicitly cited.
+    """
+    cited = [c for c in citations if c.pmid in answer]
+    return cited if cited else citations
+
+
 def _serialize_citations(citations: list) -> list[dict]:
     """
     Serialize Citation objects to dicts for JSON responses.
@@ -365,7 +385,8 @@ async def chat(
         log.error("chat_unexpected_error", user_id=request.user_id, error=str(exc))
         raise HTTPException(status_code=500, detail="Please try again momentarily")
 
-    citation_dicts = _serialize_citations(citations)
+    cited = _filter_cited(citations, answer)
+    citation_dicts = _serialize_citations(cited)
 
     # Step 8: Background profile update
     full_conversation = list(request.conversation_history) + [
@@ -382,7 +403,7 @@ async def chat(
     triage = classify_triage_level(request.get_text())
 
     log.info("chat_complete", user_id=request.user_id, domain=health_domain,
-             citations=len(citations), triage=triage.value)
+             citations=len(cited), triage=triage.value)
 
     return ChatResponse(
         conversation_id=request.conversation_id or str(_uuid.uuid4()),
@@ -466,15 +487,6 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
     triage = classify_triage_level(request.get_text())
     conversation_id = request.conversation_id or str(_uuid.uuid4())
 
-    citation_dicts = _serialize_citations(citations)
-    meta = {
-        "citations": citation_dicts,
-        "triage_level": triage.value,
-        "health_domain": health_domain,
-        "conversation_id": conversation_id,
-        "is_emergency": False,
-    }
-
     async def _generate() -> AsyncGenerator[str, None]:
         full_response = ""
         try:
@@ -494,6 +506,16 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
         except Exception as exc:
             log.error("chat_stream_failed", user_id=request.user_id, error=str(exc))
             yield f"data: {json.dumps({'token': 'An error occurred. Please try again.'})}\n\n"
+
+        # Filter citations to only those Claude actually referenced in the answer
+        cited = _filter_cited(citations, full_response)
+        meta = {
+            "citations": _serialize_citations(cited),
+            "triage_level": triage.value,
+            "health_domain": health_domain,
+            "conversation_id": conversation_id,
+            "is_emergency": False,
+        }
         yield f"data: {json.dumps({'meta': meta})}\n\n"
         yield "data: [DONE]\n\n"
 
